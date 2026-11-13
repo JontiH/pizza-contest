@@ -120,32 +120,28 @@ async function loadTab() {
 const mapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.restaurant} ${p.address || ""} Toronto`)}`;
 const mapLink = (p) => `<a class="map-link" href="${mapsUrl(p)}" target="_blank" rel="noopener noreferrer">Map</a>`;
 
-function championCard(board, open) {
-  const unclaimed = board.pizzas.filter((p) => p.champion && !p.bringer);
-  const mine = board.pizzas.filter((p) => p.champion && p.mine);
-  if (!open || (!unclaimed.length && !mine.length)) return "";
+const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd" };
+const champBadge = (p) => (p.champion ? `<span class="badge champ">🏆 v1${p.placing ? ` · ${ORDINAL[p.placing]}` : ""}</span>` : "");
+const pizzaName = (p) => (p.kind ? esc(p.kind) : `<span class="hint">not decided</span>`);
+let editingPick = false;
+let editingChamp = null;
+
+// Shown to people who haven't picked anything yet.
+function championCard(board) {
+  const unclaimed = board.pizzas.filter((p) => p.champion && !p.bringer).sort((a, b) => (a.placing || 9) - (b.placing || 9));
+  if (!unclaimed.length) return "";
   return `
     <section class="card champs">
-      ${
-        unclaimed.length
-          ? `<h2 style="margin-top:0">Not sure what to bring?</h2>
-             <p class="hint">Last contest's top ${board.pizzas.filter((p) => p.champion).length} need someone to bring them back.</p>
-             <ul class="cards">${unclaimed
-               .map(
-                 (p) => `<li class="row champ-row">
-                   <span class="grow">🏆 <strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""} ${mapLink(p)}</span>
-                   <button class="small" data-act="claim" data-id="${p.id}">I'll bring it</button>
-                 </li>`
-               )
-               .join("")}</ul>`
-          : ""
-      }
-      ${mine
+      <h3>Not sure what to bring?</h3>
+      <p class="hint">Last contest's top pizzas need someone to bring them back.</p>
+      <ul class="cards">${unclaimed
         .map(
-          (p) => `<p class="row champ-row"><span class="grow">You're bringing back 🏆 <strong>${esc(p.restaurant)}</strong> ${mapLink(p)}</span>
-            <button class="small secondary" data-act="unclaim" data-id="${p.id}">Unclaim</button></p>`
+          (p) => `<li class="row champ-row">
+            <span class="grow">${champBadge(p)} <strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""} ${mapLink(p)}</span>
+            <button class="small" data-act="claim" data-id="${p.id}">I'll bring it</button>
+          </li>`
         )
-        .join("")}
+        .join("")}</ul>
     </section>`;
 }
 
@@ -153,63 +149,114 @@ function pizzaLine(p) {
   return `${p.box ? `<span class="badge box">#${p.box}</span> ` : ""}<strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""}`;
 }
 
+function pickForm(own, editing) {
+  return `<form class="card stack" data-form="pizza" data-id="${own?.id || ""}" data-restaurant="${esc(own?.restaurant)}">
+    <h2 style="margin-top:0">${own ? "Edit your pizza" : "What are you bringing?"}</h2>
+    <label class="field">Restaurant
+      <input name="restaurant" required maxlength="60" placeholder="Start typing to search" value="${esc(own?.restaurant)}">
+    </label>
+    <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
+    <label class="field">Pizza
+      <input name="kind" required maxlength="60" placeholder="e.g. Margherita, Pepperoni, Vodka" value="${esc(own?.kind)}">
+    </label>
+    <label class="field">Notes <span class="hint">(optional)</span>
+      <input name="notes" maxlength="140" placeholder="e.g. extra crispy, picking it up at 6" value="${esc(own?.notes)}">
+    </label>
+    <fieldset>
+      ${Object.entries(CATEGORY_LABELS)
+        .map(([k, l]) => `<label><input type="radio" name="category" value="${k}" required ${own?.category === k ? "checked" : ""}> ${l}</label>`)
+        .join("")}
+    </fieldset>
+    <div class="row">
+      <button>${own ? "Save" : "Add to the lineup"}</button>
+      ${editing ? `<button type="button" class="secondary" data-act="cancel-edit">Cancel</button>` : ""}
+      ${own && !own.arrived ? `<button type="button" class="link" data-act="remove-pizza" data-id="${own.id}">Remove my pizza</button>` : ""}
+    </div>
+  </form>`;
+}
+
+function myPicks(mine) {
+  return `<section class="card mine">
+    <h3>You're bringing</h3>
+    <ul class="cards">${mine
+      .map(
+        (p) => `<li class="row">
+          <span class="grow">${champBadge(p)} <strong>${esc(p.restaurant)}</strong> · ${pizzaName(p)}${p.notes ? `<br><span class="hint">${esc(p.notes)}</span>` : ""}</span>
+          ${
+            p.champion
+              ? `<button class="small secondary" data-act="edit-champ" data-id="${p.id}">Edit</button>
+                 <button class="small link" data-act="unclaim" data-id="${p.id}">Unclaim</button>`
+              : `<button class="small secondary" data-act="edit-pick">Edit</button>`
+          }
+        </li>
+        ${
+          editingChamp === p.id
+            ? `<li><form class="stack" data-form="champ" data-id="${p.id}">
+                <label class="field">Pizza<input name="kind" maxlength="60" required placeholder="e.g. Margherita" value="${esc(p.kind)}"></label>
+                <label class="field">Notes <span class="hint">(optional)</span><input name="notes" maxlength="140" value="${esc(p.notes)}"></label>
+                <div class="row"><button>Save</button><button type="button" class="secondary" data-act="cancel-edit">Cancel</button></div>
+              </form></li>`
+            : ""
+        }`
+      )
+      .join("")}</ul>
+  </section>`;
+}
+
+function lineupTable(board, cat, open) {
+  const rows = board.pizzas
+    .filter((p) => p.category === cat)
+    .sort((a, b) => b.champion - a.champion || (a.placing || 9) - (b.placing || 9) || a.id - b.id);
+  const body = rows.length
+    ? rows
+        .map(
+          (p) => `<tr class="${p.mine ? "is-mine" : ""}">
+            <td>
+              <strong>${esc(p.restaurant)}</strong> ${champBadge(p)}
+              ${p.box ? `<span class="badge box">#${p.box}</span>` : ""}
+              ${p.finished ? `<span class="badge done">finished</span>` : p.arrived ? `<span class="badge">on the table</span>` : ""}
+              <br>${mapLink(p)}
+            </td>
+            <td><strong>${pizzaName(p)}</strong>${p.notes ? `<br><span class="hint">${esc(p.notes)}</span>` : ""}</td>
+            <td>${
+              p.bringer
+                ? esc(p.bringer)
+                : open && p.champion
+                  ? `<button class="small" data-act="claim" data-id="${p.id}">I'll bring it</button>`
+                  : `<span class="hint">nobody yet</span>`
+            }</td>
+          </tr>`
+        )
+        .join("")
+    : `<tr><td colspan="3" class="empty">Nobody yet.</td></tr>`;
+  return `
+    <h3 class="cat">${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "anything goes"} · ${rows.length}</span></h3>
+    <table class="lineup">
+      <thead><tr><th>Restaurant</th><th>Pizza</th><th>Brought by</th></tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
+}
+
 async function renderLineup() {
   const board = await api("GET", "/api/board");
   me.phase = board.phase;
   const open = ["signup", "tasting"].includes(board.phase);
-  const own = board.pizzas.find((p) => p.mine && !p.champion);
-
-  const section = (cat) => {
-    const list = board.pizzas.filter((p) => p.category === cat);
-    return `
-      <h2>${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "anything goes"}</span></h2>
-      <ul class="cards">${
-        list.length
-          ? list
-              .map(
-                (p) => `<li class="card">
-                  <div class="row">
-                    <div class="grow">
-                      ${pizzaLine(p)}
-                      ${p.champion ? ` <span class="badge champ">🏆 returning champion</span>` : ""}
-                      ${p.finished ? ` <span class="badge done">finished</span>` : p.arrived ? ` <span class="badge">on the table</span>` : ""}
-                      <p class="meta">${p.bringer ? `Brought by ${esc(p.bringer)}` : "Needs a volunteer"} · ${mapLink(p)}</p>
-                    </div>
-                  </div>
-                </li>`
-              )
-              .join("")
-          : `<li class="empty">Nobody yet.</li>`
-      }</ul>`;
-  };
+  const mine = board.pizzas.filter((p) => p.mine);
+  const own = mine.find((p) => !p.champion);
+  const showForm = open && (!mine.length || editingPick);
 
   $("#pane").innerHTML = `
-    ${
-      open
-        ? `<form class="card stack" data-form="pizza" data-id="${own?.id || ""}" data-restaurant="${esc(own?.restaurant)}">
-            <h2 style="margin-top:0">${own ? "Your pizza" : "What are you bringing?"}</h2>
-            <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)" value="${esc(own?.restaurant)}">
-            <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
-            <input name="kind" maxlength="140" placeholder="Type of pizza or notes (e.g. Margherita, extra crispy)" value="${esc(own?.kind)}">
-            <fieldset>
-              ${Object.entries(CATEGORY_LABELS)
-                .map(
-                  ([k, l]) =>
-                    `<label><input type="radio" name="category" value="${k}" required ${own?.category === k ? "checked" : ""}> ${l}</label>`
-                )
-                .join("")}
-            </fieldset>
-            <div class="row">
-              <button>${own ? "Save" : "Add to the lineup"}</button>
-              ${own && !own.arrived ? `<button type="button" class="secondary" data-act="remove-pizza" data-id="${own.id}">Remove</button>` : ""}
-            </div>
-          </form>`
-        : `<p class="hint">The lineup is locked.</p>`
-    }
-    ${championCard(board, open)}
+    ${showForm ? pickForm(own, editingPick) : ""}
+    ${!showForm && mine.length ? myPicks(mine) : ""}
+    ${open && !mine.length ? championCard(board) : ""}
+    ${!open ? `<p class="hint">The lineup is locked.</p>` : ""}
+
+    <h2>Who's bringing what</h2>
+    ${lineupTable(board, "platonic", open)}
+    ${lineupTable(board, "non_platonic", open)}
+
     <div id="map" class="pizza-map" hidden></div>
-    ${section("platonic")}
-    ${section("non_platonic")}
+
     <h2>Who's coming (${board.guests.length})</h2>
     <ul class="guests">${board.guests
       .map((g) => `<li class="badge">${esc(g.name)}${g.checked_in ? " ✓" : ""}${g.bringing ? " 🍕" : ""}</li>`)
@@ -377,7 +424,7 @@ async function renderAdmin() {
           (p) => `<tr>
             <td>${p.box ? `<span class="badge box">#${p.box}</span>` : ""}</td>
             <td><strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""}<br>
-              <span class="hint">${CATEGORY_LABELS[p.category]}${p.champion ? " · 🏆 champion" : ""} · ${p.scored} scores</span><br>
+              <span class="hint">${CATEGORY_LABELS[p.category]}${p.champion ? ` · 🏆 v1${p.placing ? ` ${ORDINAL[p.placing]}` : ""}` : ""} · ${p.scored} scores</span><br>
               <span class="hint">${p.lat != null ? `📍 ${esc(p.address || "on the map")}` : "Not on the map"}</span>
               <button class="small link" data-fix-location="${p.id}" data-name="${esc(p.restaurant)}">${p.lat != null ? "Move pin" : "Add pin"}</button></td>
             <td>${bringerSelect(p)}</td>
@@ -396,10 +443,12 @@ async function renderAdmin() {
       <p class="hint">Add as many as you like, for anyone or for nobody yet. Tick "Returning champion" for a champion slot.</p>
       <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)">
       <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
-      <input name="kind" maxlength="140" placeholder="Type of pizza or notes (e.g. Margherita · 1st last time)">
+      <input name="kind" maxlength="60" placeholder="Pizza (e.g. Margherita), if known">
+      <input name="notes" maxlength="140" placeholder="Notes (optional)">
       <fieldset>
         ${Object.entries(CATEGORY_LABELS).map(([k, l]) => `<label><input type="radio" name="category" value="${k}" required> ${l}</label>`).join("")}
         <label><input type="checkbox" name="champion"> Returning champion</label>
+        <select name="placing" aria-label="Placing last time"><option value="">placing last time</option><option value="1">1st</option><option value="2">2nd</option><option value="3">3rd</option></select>
       </fieldset>
       <select name="bringer_id"><option value="">Brought by nobody yet</option>${approved
         .map((u) => `<option value="${u.id}">${esc(u.name)}</option>`)
@@ -450,6 +499,12 @@ view.addEventListener("submit", async (e) => {
       case "pizza":
         if (form.dataset.id) await api("PATCH", `/api/pizzas/${form.dataset.id}`, locationFields(data));
         else await api("POST", "/api/pizzas", locationFields(data));
+        editingPick = false;
+        toast("Saved");
+        return loadTab();
+      case "champ":
+        await api("PATCH", `/api/pizzas/${form.dataset.id}`, { kind: data.kind, notes: data.notes });
+        editingChamp = null;
         toast("Saved");
         return loadTab();
       case "score": {
@@ -481,6 +536,11 @@ view.addEventListener("click", async (e) => {
       return loadTab();
     }
     if (d.act === "login-back") return renderLogin("email");
+    if (d.act === "edit-pick" || d.act === "cancel-edit" || d.act === "edit-champ") {
+      editingPick = d.act === "edit-pick";
+      editingChamp = d.act === "edit-champ" ? Number(d.id) : null;
+      return loadTab();
+    }
     if (d.act === "claim") await api("POST", `/api/pizzas/${d.id}/claim`);
     else if (d.act === "unclaim") await api("POST", `/api/pizzas/${d.id}/unclaim`);
     else if (d.act === "remove-pizza") {

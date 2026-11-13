@@ -39,3 +39,14 @@ fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 1rem; flex-wrap
 .which { display: grid; gap: 0.4rem; background: var(--cream); border: 1px solid var(--line); }
 .which p { margin: 0; }
 .which .secondary { text-align: left; }
+.field { display: grid; gap: 0.25rem; font-size: 0.9rem; color: var(--muted); }
+.field input { color: var(--ink); font-size: 1rem; }
+.mine h3, .champs h3 { margin: 0 0 0.4rem; }
+.mine { border: 2px solid var(--good); }
+h3.cat { margin: 1rem 0 0.4rem; }
+table.lineup { width: 100%; background: var(--card); border-radius: 0.75rem; overflow: hidden; font-size: 0.92rem; }
+table.lineup th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); background: #fbf1e2; }
+table.lineup td { vertical-align: top; border-top: 1px solid var(--line); }
+table.lineup tr.is-mine td { background: #f1fbf3; }
+table.lineup td:nth-child(2) { min-width: 6rem; }
+table.lineup .map-link { margin-left: 0; }

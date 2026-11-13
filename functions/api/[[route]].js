@@ -124,7 +124,7 @@ function requireLineupOpen(ctx) {
 async function board(ctx) {
   const [pizzas, guests] = await ctx.env.DB.batch([
     ctx.env.DB.prepare(
-      `SELECT p.id, p.restaurant, p.kind, p.category, p.champion, p.box, p.bringer_id, p.lat, p.lon, p.address,
+      `SELECT p.id, p.restaurant, p.kind, p.notes, p.category, p.champion, p.placing, p.box, p.bringer_id, p.lat, p.lon, p.address,
               p.arrived_at IS NOT NULL AS arrived, p.finished_at IS NOT NULL AS finished, u.name AS bringer
          FROM pizzas p LEFT JOIN users u ON u.id = p.bringer_id
         ORDER BY p.champion DESC, p.id`
@@ -148,10 +148,20 @@ async function board(ctx) {
   };
 }
 
-function pizzaFields(body, { partial = false } = {}) {
+function parsePlacing(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  if (![1, 2, 3].includes(n)) throw bad("placing must be 1st, 2nd or 3rd");
+  return n;
+}
+
+// Guests must say which pizza; champion slots and admin entries may leave
+// it blank until someone knows.
+function pizzaFields(body, { partial = false, requireKind = false } = {}) {
   const out = {};
   if (!partial || body.restaurant !== undefined) out.restaurant = text(body.restaurant, "restaurant", 60, true);
-  if (!partial || body.kind !== undefined) out.kind = text(body.kind, "type of pizza or notes", 140);
+  if (!partial || body.kind !== undefined) out.kind = text(body.kind, "pizza", 60, requireKind);
+  if (!partial || body.notes !== undefined) out.notes = text(body.notes, "notes", 140);
   if (!partial || body.category !== undefined) {
     if (!CATEGORIES.includes(body.category)) throw bad("pick a category");
     out.category = body.category;
@@ -170,10 +180,10 @@ async function withLocation(env, f, body) {
 async function insertPizza(env, f, champion, bringerId) {
   try {
     const { id } = await env.DB.prepare(
-      `INSERT INTO pizzas (restaurant, kind, category, champion, bringer_id, lat, lon, address)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+      `INSERT INTO pizzas (restaurant, kind, notes, category, champion, placing, bringer_id, lat, lon, address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
     )
-      .bind(f.restaurant, f.kind, f.category, champion ? 1 : 0, bringerId, f.lat, f.lon, f.address)
+      .bind(f.restaurant, f.kind, f.notes, f.category, champion ? 1 : 0, champion ? (f.placing ?? null) : null, bringerId, f.lat, f.lon, f.address)
       .first();
     return { id };
   } catch (e) {
@@ -188,7 +198,7 @@ async function addPizza(ctx, body) {
     .bind(ctx.user.id)
     .first("n");
   if (own > 0) throw bad("you're already bringing a pizza; edit that one instead");
-  return insertPizza(ctx.env, await withLocation(ctx.env, pizzaFields(body), body), false, ctx.user.id);
+  return insertPizza(ctx.env, await withLocation(ctx.env, pizzaFields(body, { requireKind: true }), body), false, ctx.user.id);
 }
 
 async function ownPizza(ctx, id) {
@@ -202,7 +212,9 @@ async function editPizza(ctx, id, body) {
   requireLineupOpen(ctx);
   const p = await ownPizza(ctx, id);
   // Champion slots are fixed by the admin; volunteers only say what kind.
-  let f = p.champion ? pizzaFields({ kind: body.kind }, { partial: true }) : pizzaFields(body, { partial: true });
+  let f = p.champion
+    ? pizzaFields({ kind: body.kind, notes: body.notes }, { partial: true })
+    : pizzaFields(body, { partial: true, requireKind: true });
   if (!p.champion && f.restaurant !== undefined && f.restaurant !== p.restaurant) f = await withLocation(ctx.env, f, body);
   await updatePizza(ctx.env, id, f);
   return { ok: true };
@@ -314,7 +326,8 @@ async function admin(ctx, method, path) {
   if (path === "pizzas" && method === "POST") {
     const body = await readJson(ctx.request);
     const bringer = body.bringer_id ? Number(body.bringer_id) : null;
-    return json(await insertPizza(env, await withLocation(env, pizzaFields(body), body), !!body.champion, bringer), 201);
+    const fields = { ...pizzaFields(body), placing: parsePlacing(body.placing) };
+    return json(await insertPizza(env, await withLocation(env, fields, body), !!body.champion, bringer), 201);
   }
 
   if ((match = path.match(/^pizzas\/(\d+)$/)) && method === "POST") {
@@ -322,6 +335,7 @@ async function admin(ctx, method, path) {
     const body = await readJson(ctx.request);
     const f = pizzaFields(body, { partial: true });
     if (body.champion !== undefined) f.champion = body.champion ? 1 : 0;
+    if (body.placing !== undefined) f.placing = parsePlacing(body.placing);
     if (body.bringer_id !== undefined) f.bringer_id = body.bringer_id ? Number(body.bringer_id) : null;
     if (typeof body.maps_link === "string" && body.maps_link.trim()) Object.assign(f, await locationFromMapsLink(body.maps_link));
     else Object.assign(f, parseLocation(body) || {});
