@@ -133,15 +133,15 @@ export async function drawMap(el, pizzas) {
   }).addTo(map);
   const bounds = [];
   for (const p of pins) {
-    const icon = L.divIcon({ className: `pin${p.champion ? " champ" : ""}`, html: "<span>🍕</span>", iconSize: [30, 30], iconAnchor: [15, 15] });
+    const icon = L.divIcon({ className: `pin${p.champion ? " champ" : ""}`, html: `<span>${p.home ? "🏠" : "🍕"}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] });
     L.marker([p.lat, p.lon], { icon })
       .addTo(map)
       .bindPopup(
         `<strong>${esc(p.restaurant)}</strong>${p.champion ? " 🏆" : ""}<br>${esc(p.kind)}${p.kind ? "<br>" : ""}` +
-          `<span class="hint">${p.bringer ? `Brought by ${esc(p.bringer)}` : "Needs a volunteer"}</span>`
+          (p.home ? "" : `<span class="hint">${p.bringer ? `Brought by ${esc(p.bringer)}` : "Needs a volunteer"}</span>`)
       );
     bounds.push([p.lat, p.lon]);
   }
-  if (bounds.length === 1) map.setView(bounds[0], 14);
+  if (bounds.length === 1) map.setView(bounds[0], 15);
   else map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
 }

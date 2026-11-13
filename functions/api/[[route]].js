@@ -1,7 +1,7 @@
 import { isAdmin, logout, sessionEmail } from "../../lib/auth.js";
 import { HttpError, bad, handle, json, readJson, text } from "../../lib/http.js";
 import { buildResults } from "../../lib/results.js";
-import { guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
+import { geocodeAddress, guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
 import { currentSlice, nextSlice, parseScore, scoreSlice, skipSlice } from "../../lib/tasting.js";
 
 const PHASES = ["signup", "tasting", "closed", "revealed"];
@@ -37,6 +37,7 @@ async function route(ctx, method, path) {
   if (!ctx.user || ctx.user.status !== "approved") throw new HttpError(403, "waiting for approval");
 
   if (path === "board" && method === "GET") return json(await board(ctx));
+  if (path === "info" && method === "GET") return json(info(ctx.settings));
   if (path === "places" && method === "GET") return json({ results: await searchPlaces(ctx.env, new URL(ctx.request.url).searchParams.get("q")) });
   if (path === "pizzas" && method === "POST") return json(await addPizza(ctx, await readJson(ctx.request)), 201);
   if ((match = m(/^pizzas\/(\d+)$/)) && method === "PATCH") return json(await editPizza(ctx, +match[1], await readJson(ctx.request)));
@@ -81,6 +82,13 @@ async function route(ctx, method, path) {
   }
 
   throw new HttpError(404, "not found");
+}
+
+// Party details live only in the settings table (never in the public
+// repo) and are only served to approved guests.
+const INFO_FIELDS = ["info_when", "info_address", "info_unit", "info_buzzer", "info_parking", "info_body", "info_lat", "info_lon"];
+function info(settings) {
+  return Object.fromEntries(INFO_FIELDS.map((k) => [k.slice(5), settings[k] ?? ""]));
 }
 
 function me(ctx) {
@@ -366,6 +374,26 @@ async function admin(ctx, method, path) {
     if (body.phase !== undefined) {
       if (!PHASES.includes(body.phase)) throw bad("bad phase");
       await env.DB.prepare(`UPDATE settings SET value = ? WHERE key = 'phase'`).bind(body.phase).run();
+    }
+    if (body.info !== undefined) {
+      const i = body.info || {};
+      const values = {
+        info_when: text(i.when, "when", 120),
+        info_address: text(i.address, "address", 120),
+        info_unit: text(i.unit, "unit", 40),
+        info_buzzer: text(i.buzzer, "buzzer", 40),
+        info_parking: text(i.parking, "parking", 200),
+        // Keep line breaks in the FAQ; text() would collapse them.
+        info_body: typeof i.body === "string" ? i.body.replace(/\r/g, "").slice(0, 5000) : "",
+      };
+      const place = values.info_address ? await geocodeAddress(values.info_address).catch(() => null) : null;
+      values.info_lat = place ? String(place.lat) : "";
+      values.info_lon = place ? String(place.lon) : "";
+      await env.DB.batch(
+        Object.entries(values).map(([k, v]) =>
+          env.DB.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`).bind(k, v)
+        )
+      );
     }
     if (body.allow_skip !== undefined) {
       await env.DB.prepare(

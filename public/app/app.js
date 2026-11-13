@@ -86,6 +86,7 @@ function renderMain() {
   // Vote and Results stay visible but greyed out until the host opens them.
   const tabs = [
     ["lineup", "Lineup", true],
+    ["info", "Info", true],
     ["vote", "Vote", me.phase !== "signup"],
     ["results", "Results", ["closed", "revealed"].includes(me.phase)],
     ...(me.admin ? [["admin", "Admin", true]] : []),
@@ -108,6 +109,7 @@ async function loadTab() {
   location.hash = tab;
   try {
     if (tab === "lineup") await renderLineup();
+    if (tab === "info") await renderInfo();
     if (tab === "vote") await renderTaste();
     if (tab === "results") renderResultsLinks();
     if (tab === "admin") await renderAdmin();
@@ -267,6 +269,58 @@ async function renderLineup() {
   drawMap($("#map"), board.pizzas).catch(() => ($("#map").hidden = true));
 }
 
+// A small, safe subset of Markdown for the FAQ: "## " headings, "- "
+// bullets, **bold**, https links, blank lines between paragraphs. Text is
+// escaped before any markup is added.
+function miniMarkdown(src) {
+  const inline = (t) =>
+    esc(t)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  const out = [];
+  let list = null;
+  for (const raw of src.split("\n")) {
+    const line = raw.trimEnd();
+    if (line.startsWith("- ")) {
+      if (!list) out.push((list = []));
+      list.push(`<li>${inline(line.slice(2))}</li>`);
+      continue;
+    }
+    list = null;
+    if (!line.trim()) continue;
+    if (line.startsWith("## ")) out.push(`<h3>${inline(line.slice(3))}</h3>`);
+    else out.push(`<p>${inline(line)}</p>`);
+  }
+  return out.map((x) => (Array.isArray(x) ? `<ul>${x.join("")}</ul>` : x)).join("");
+}
+
+async function renderInfo() {
+  const i = await api("GET", "/api/info");
+  const dest = [i.address, "Toronto"].filter(Boolean).join(", ");
+  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
+  $("#pane").innerHTML = `
+    <section class="card info-where">
+      ${i.when ? `<p class="when-line">${esc(i.when)}</p>` : ""}
+      ${
+        i.address
+          ? `<p class="addr"><strong>${esc(i.address)}</strong>${i.unit ? `, ${esc(i.unit)}` : ""}</p>
+             <ul class="info-notes">
+               ${i.buzzer ? `<li>Buzzer code: <strong>${esc(i.buzzer)}</strong></li>` : ""}
+               ${i.parking ? `<li>${esc(i.parking)}</li>` : ""}
+             </ul>
+             <div id="info-map" class="pizza-map" hidden></div>
+             <a class="button" href="${directions}" target="_blank" rel="noopener noreferrer">Directions in Google Maps</a>`
+          : `<p class="hint">The host hasn't added the address yet.</p>`
+      }
+    </section>
+    <section class="faq">${miniMarkdown(i.body || "")}</section>`;
+  const lat = Number(i.lat);
+  const lon = Number(i.lon);
+  if (i.lat && Number.isFinite(lat) && Number.isFinite(lon)) {
+    drawMap($("#info-map"), [{ lat, lon, restaurant: i.address, kind: i.unit, bringer: "", champion: true, home: true }]).catch(() => {});
+  }
+}
+
 async function renderTaste() {
   const t = await api("GET", "/api/tasting");
   me.phase = t.phase;
@@ -377,6 +431,20 @@ async function renderAdmin() {
       <label><input type="checkbox" data-act-change="allow-skip" ${a.settings.allow_skip === "1" ? "checked" : ""}> Let voters skip a pizza for now</label>
     </p>
     <p class="row"><a href="/results/">Preview results (admin only)</a></p>
+
+    <details class="card info-edit" ${a.settings.info_address ? "" : "open"}>
+      <summary><strong>Edit info</strong> <span class="hint">(the Info tab, approved guests only)</span></summary>
+      <form class="stack" data-form="info">
+        <label class="field">When<input name="when" maxlength="120" value="${esc(a.settings.info_when)}"></label>
+        <label class="field">Address<input name="address" maxlength="120" value="${esc(a.settings.info_address)}"></label>
+        <label class="field">Unit<input name="unit" maxlength="40" value="${esc(a.settings.info_unit)}"></label>
+        <label class="field">Buzzer code<input name="buzzer" maxlength="40" value="${esc(a.settings.info_buzzer)}"></label>
+        <label class="field">Parking<input name="parking" maxlength="200" value="${esc(a.settings.info_parking)}"></label>
+        <label class="field">FAQ <span class="hint">"## " starts a heading, "- " a bullet, **bold**</span>
+          <textarea name="body" rows="14" maxlength="5000">${esc(a.settings.info_body)}</textarea></label>
+        <button>Save info</button>
+      </form>
+    </details>
 
     <h2>Waiting for approval (${pending.length})</h2>
     ${
@@ -502,6 +570,10 @@ view.addEventListener("submit", async (e) => {
         else await api("POST", "/api/pizzas", locationFields(data));
         editingPick = false;
         toast("Saved");
+        return loadTab();
+      case "info":
+        await api("POST", "/api/admin/settings", { info: data });
+        toast("Info saved");
         return loadTab();
       case "champ":
         await api("PATCH", `/api/pizzas/${form.dataset.id}`, { kind: data.kind, notes: data.notes });

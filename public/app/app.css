@@ -50,3 +50,13 @@ table.lineup td { vertical-align: top; border-top: 1px solid var(--line); }
 table.lineup tr.is-mine td { background: #f1fbf3; }
 table.lineup td:nth-child(2) { min-width: 6rem; }
 table.lineup .map-link { margin-left: 0; }
+.info-where .when-line { font-size: 1.15rem; font-weight: 700; margin: 0 0 0.5rem; }
+.info-where .addr { font-size: 1.1rem; margin: 0; }
+.info-notes { margin: 0.4rem 0 0.8rem; padding-left: 1.2rem; }
+.info-where .pizza-map { height: 220px; margin: 0 0 0.8rem; }
+.faq h3 { margin: 1.4rem 0 0.3rem; }
+.faq p, .faq ul { margin: 0.3rem 0; line-height: 1.5; }
+.info-edit summary { cursor: pointer; }
+.info-edit form { margin-top: 0.8rem; }
+.info-edit textarea { width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #ddcbb8; border-radius: 0.5rem; font: inherit; }
+nav.tabs button { padding-inline: 0.4rem; }
