@@ -1,4 +1,4 @@
-import { isAdmin, logout, notifyAdmins, sessionEmail } from "../../lib/auth.js";
+import { isAdmin, logout, notifyAdmins, notifyApproved, sessionEmail } from "../../lib/auth.js";
 import { HttpError, bad, handle, json, readJson, text } from "../../lib/http.js";
 import { buildResults } from "../../lib/results.js";
 import { geocodeAddress, guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
@@ -326,7 +326,11 @@ async function admin(ctx, method, path) {
     const body = await readJson(ctx.request);
     if (body.status !== undefined) {
       if (!["pending", "approved", "rejected"].includes(body.status)) throw bad("bad status");
+      const before = await env.DB.prepare(`SELECT name, email, status FROM users WHERE id = ?`).bind(id).first();
       await env.DB.prepare(`UPDATE users SET status = ? WHERE id = ?`).bind(body.status, id).run();
+      if (before && before.status !== "approved" && body.status === "approved") {
+        await notifyApproved(env, ctx.request, before.name, before.email);
+      }
     }
     if (body.checked_in === true) {
       await env.DB.prepare(`UPDATE users SET checked_in_at = COALESCE(checked_in_at, datetime('now')) WHERE id = ?`).bind(id).run();
