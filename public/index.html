@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pizza Contest</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>🍕 Pizza Contest</h1>
+    <div id="me">
+      <label for="name">You are</label>
+      <input id="name" maxlength="40" placeholder="your name" autocomplete="given-name">
+    </div>
+  </header>
+
+  <nav>
+    <button data-tab="lineup" class="active">Lineup</button>
+    <button data-tab="vote">Vote</button>
+    <button data-tab="results">Results</button>
+  </nav>
+
+  <main>
+    <section id="lineup">
+      <form id="add">
+        <h2>Bringing a pizza?</h2>
+        <input name="restaurant" required maxlength="80" placeholder="Restaurant *">
+        <input name="pizza" maxlength="80" placeholder="Which pizza (e.g. Margherita)">
+        <input name="style" maxlength="40" placeholder="Style (Neapolitan, NY, Detroit…)" list="styles">
+        <datalist id="styles">
+          <option>Neapolitan</option><option>New York</option><option>Detroit</option>
+          <option>Roman</option><option>Sicilian</option><option>Chicago deep dish</option>
+          <option>Grandma</option><option>Bar pie</option>
+        </datalist>
+        <input name="notes" maxlength="280" placeholder="Notes (price, size, why this one)">
+        <button type="submit">Add to lineup</button>
+      </form>
+      <ol id="lineup-list" class="cards"></ol>
+    </section>
+
+    <section id="vote" hidden>
+      <p class="hint">Score each pizza from 1 to 10. Tap another number to change your score, or the same one to clear it.</p>
+      <ol id="vote-list" class="cards"></ol>
+    </section>
+
+    <section id="results" hidden>
+      <ol id="board"></ol>
+      <p id="voters" class="hint"></p>
+    </section>
+  </main>
+
+  <p id="toast" role="status"></p>
+</body>
+</html>
