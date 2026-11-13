@@ -23,3 +23,12 @@ fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 1rem; flex-wrap
 .champ-row { gap: 0.6rem; }
 .champs .cards { gap: 0.4rem; }
 .map-link { font-size: 0.85rem; margin-left: 0.25rem; }
+.suggest { list-style: none; margin: -0.3rem 0 0; padding: 0.25rem; background: #fff; border: 1px solid #ddcbb8; border-radius: 0.5rem; display: grid; gap: 0.15rem; }
+.suggest[hidden] { display: none; }
+.suggest button { width: 100%; text-align: left; background: none; color: var(--ink); padding: 0.45rem 0.55rem; display: grid; }
+.suggest button:hover, .suggest button:focus { background: var(--cream); }
+.suggest span { color: var(--muted); font-size: 0.85rem; }
+.pizza-map { height: 320px; border-radius: 0.75rem; margin-top: 1rem; z-index: 0; }
+.pizza-map[hidden] { display: none; }
+.pin { display: grid; place-items: center; background: var(--red); border: 3px solid var(--ink); border-radius: 50%; font-size: 15px; }
+.pin.champ { background: #ffc93c; }

@@ -1,6 +1,7 @@
 import { isAdmin, logout, sessionEmail } from "../../lib/auth.js";
 import { HttpError, bad, handle, json, readJson, text } from "../../lib/http.js";
 import { buildResults } from "../../lib/results.js";
+import { guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
 import { currentSlice, nextSlice, parseScore, scoreSlice, skipSlice } from "../../lib/tasting.js";
 
 const PHASES = ["signup", "tasting", "closed", "revealed"];
@@ -36,6 +37,7 @@ async function route(ctx, method, path) {
   if (!ctx.user || ctx.user.status !== "approved") throw new HttpError(403, "waiting for approval");
 
   if (path === "board" && method === "GET") return json(await board(ctx));
+  if (path === "places" && method === "GET") return json({ results: await searchPlaces(ctx.env, new URL(ctx.request.url).searchParams.get("q")) });
   if (path === "pizzas" && method === "POST") return json(await addPizza(ctx, await readJson(ctx.request)), 201);
   if ((match = m(/^pizzas\/(\d+)$/)) && method === "PATCH") return json(await editPizza(ctx, +match[1], await readJson(ctx.request)));
   if ((match = m(/^pizzas\/(\d+)$/)) && method === "DELETE") return json(await removePizza(ctx, +match[1]));
@@ -119,7 +121,7 @@ function requireLineupOpen(ctx) {
 async function board(ctx) {
   const [pizzas, guests] = await ctx.env.DB.batch([
     ctx.env.DB.prepare(
-      `SELECT p.id, p.restaurant, p.kind, p.category, p.champion, p.box, p.bringer_id,
+      `SELECT p.id, p.restaurant, p.kind, p.category, p.champion, p.box, p.bringer_id, p.lat, p.lon, p.address,
               p.arrived_at IS NOT NULL AS arrived, p.finished_at IS NOT NULL AS finished, u.name AS bringer
          FROM pizzas p LEFT JOIN users u ON u.id = p.bringer_id
         ORDER BY p.champion DESC, p.id`
@@ -146,7 +148,7 @@ async function board(ctx) {
 function pizzaFields(body, { partial = false } = {}) {
   const out = {};
   if (!partial || body.restaurant !== undefined) out.restaurant = text(body.restaurant, "restaurant", 60, true);
-  if (!partial || body.kind !== undefined) out.kind = text(body.kind, "what kind", 80);
+  if (!partial || body.kind !== undefined) out.kind = text(body.kind, "type of pizza or notes", 140);
   if (!partial || body.category !== undefined) {
     if (!CATEGORIES.includes(body.category)) throw bad("pick a category");
     out.category = body.category;
@@ -154,12 +156,21 @@ function pizzaFields(body, { partial = false } = {}) {
   return out;
 }
 
+// Uses the location the person picked, or looks the restaurant up.
+async function withLocation(env, f, body) {
+  const picked = parseLocation(body);
+  if (picked) return { ...f, ...picked };
+  const guess = await guessPlace(env, f.restaurant);
+  return guess ? { ...f, lat: guess.lat, lon: guess.lon, address: guess.address } : { ...f, lat: null, lon: null, address: "" };
+}
+
 async function insertPizza(env, f, champion, bringerId) {
   try {
     const { id } = await env.DB.prepare(
-      `INSERT INTO pizzas (restaurant, kind, category, champion, bringer_id) VALUES (?, ?, ?, ?, ?) RETURNING id`
+      `INSERT INTO pizzas (restaurant, kind, category, champion, bringer_id, lat, lon, address)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
     )
-      .bind(f.restaurant, f.kind, f.category, champion ? 1 : 0, bringerId)
+      .bind(f.restaurant, f.kind, f.category, champion ? 1 : 0, bringerId, f.lat, f.lon, f.address)
       .first();
     return { id };
   } catch (e) {
@@ -174,7 +185,7 @@ async function addPizza(ctx, body) {
     .bind(ctx.user.id)
     .first("n");
   if (own > 0) throw bad("you're already bringing a pizza; edit that one instead");
-  return insertPizza(ctx.env, pizzaFields(body), false, ctx.user.id);
+  return insertPizza(ctx.env, await withLocation(ctx.env, pizzaFields(body), body), false, ctx.user.id);
 }
 
 async function ownPizza(ctx, id) {
@@ -188,7 +199,8 @@ async function editPizza(ctx, id, body) {
   requireLineupOpen(ctx);
   const p = await ownPizza(ctx, id);
   // Champion slots are fixed by the admin; volunteers only say what kind.
-  const f = p.champion ? pizzaFields({ kind: body.kind }, { partial: true }) : pizzaFields(body, { partial: true });
+  let f = p.champion ? pizzaFields({ kind: body.kind }, { partial: true }) : pizzaFields(body, { partial: true });
+  if (!p.champion && f.restaurant !== undefined && f.restaurant !== p.restaurant) f = await withLocation(ctx.env, f, body);
   await updatePizza(ctx.env, id, f);
   return { ok: true };
 }
@@ -299,7 +311,7 @@ async function admin(ctx, method, path) {
   if (path === "pizzas" && method === "POST") {
     const body = await readJson(ctx.request);
     const bringer = body.bringer_id ? Number(body.bringer_id) : null;
-    return json(await insertPizza(env, pizzaFields(body), !!body.champion, bringer), 201);
+    return json(await insertPizza(env, await withLocation(env, pizzaFields(body), body), !!body.champion, bringer), 201);
   }
 
   if ((match = path.match(/^pizzas\/(\d+)$/)) && method === "POST") {
@@ -308,6 +320,8 @@ async function admin(ctx, method, path) {
     const f = pizzaFields(body, { partial: true });
     if (body.champion !== undefined) f.champion = body.champion ? 1 : 0;
     if (body.bringer_id !== undefined) f.bringer_id = body.bringer_id ? Number(body.bringer_id) : null;
+    if (typeof body.maps_link === "string" && body.maps_link.trim()) Object.assign(f, await locationFromMapsLink(body.maps_link));
+    else Object.assign(f, parseLocation(body) || {});
     await updatePizza(env, id, f);
     if (body.arrived === true) await arrive(env, id);
     if (body.arrived === false) await env.DB.prepare(`UPDATE pizzas SET arrived_at = NULL WHERE id = ?`).bind(id).run();

@@ -1,5 +1,6 @@
 import { CATEGORY_LABELS, METHODS } from "/assets/tally.js";
 import { $, $$, ApiError, api, esc, fmt, toast } from "/assets/ui.js";
+import { attachPlaceSearch, drawMap, locationFields } from "/app/places.js";
 
 const view = $("#view");
 const foot = $("#foot");
@@ -116,7 +117,7 @@ async function loadTab() {
   }
 }
 
-const mapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.restaurant} Toronto`)}`;
+const mapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.restaurant} ${p.address || ""} Toronto`)}`;
 const mapLink = (p) => `<a class="map-link" href="${mapsUrl(p)}" target="_blank" rel="noopener noreferrer">Map</a>`;
 
 function championCard(board, open) {
@@ -187,8 +188,9 @@ async function renderLineup() {
       open
         ? `<form class="card stack" data-form="pizza" data-id="${own?.id || ""}">
             <h2 style="margin-top:0">${own ? "Your pizza" : "What are you bringing?"}</h2>
-            <input name="restaurant" required maxlength="60" placeholder="Restaurant" value="${esc(own?.restaurant)}">
-            <input name="kind" maxlength="80" placeholder="What pizza (e.g. Margherita, Pepperoni)" value="${esc(own?.kind)}">
+            <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)" value="${esc(own?.restaurant)}">
+            <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
+            <input name="kind" maxlength="140" placeholder="Type of pizza or notes (e.g. Margherita, extra crispy)" value="${esc(own?.kind)}">
             <fieldset>
               ${Object.entries(CATEGORY_LABELS)
                 .map(
@@ -205,6 +207,7 @@ async function renderLineup() {
         : `<p class="hint">The lineup is locked.</p>`
     }
     ${championCard(board, open)}
+    <div id="map" class="pizza-map" hidden></div>
     ${section("platonic")}
     ${section("non_platonic")}
     <h2>Who's coming (${board.guests.length})</h2>
@@ -212,6 +215,9 @@ async function renderLineup() {
       .map((g) => `<li class="badge">${esc(g.name)}${g.checked_in ? " ✓" : ""}${g.bringing ? " 🍕" : ""}</li>`)
       .join("")}</ul>
     <p class="hint">✓ checked in · 🍕 bringing a pizza</p>`;
+  const form = $('form[data-form="pizza"]');
+  if (form) attachPlaceSearch(form);
+  drawMap($("#map"), board.pizzas).catch(() => ($("#map").hidden = true));
 }
 
 async function renderTaste() {
@@ -360,7 +366,9 @@ async function renderAdmin() {
           (p) => `<tr>
             <td>${p.box ? `<span class="badge box">#${p.box}</span>` : ""}</td>
             <td><strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""}<br>
-              <span class="hint">${CATEGORY_LABELS[p.category]}${p.champion ? " · 🏆 champion" : ""} · ${p.scored} scores</span></td>
+              <span class="hint">${CATEGORY_LABELS[p.category]}${p.champion ? " · 🏆 champion" : ""} · ${p.scored} scores</span><br>
+              <span class="hint">${p.lat != null ? `📍 ${esc(p.address || "on the map")}` : "Not on the map"}</span>
+              <button class="small link" data-fix-location="${p.id}" data-name="${esc(p.restaurant)}">${p.lat != null ? "Move pin" : "Add pin"}</button></td>
             <td>${bringerSelect(p)}</td>
             <td class="row">
               <button class="small ${p.arrived_at ? "on" : "secondary"}" data-pizza="${p.id}" data-field="arrived" data-value="${!p.arrived_at}">${p.arrived_at ? "On table" : "Arrived"}</button>
@@ -374,8 +382,9 @@ async function renderAdmin() {
 
     <form class="card stack" data-form="admin-pizza" style="margin-top:1rem">
       <h3>Add a pizza or champion slot</h3>
-      <input name="restaurant" required maxlength="60" placeholder="Restaurant">
-      <input name="kind" maxlength="80" placeholder="What pizza">
+      <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)">
+      <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
+      <input name="kind" maxlength="140" placeholder="Type of pizza or notes (e.g. Margherita · 1st last time)">
       <fieldset>
         ${Object.entries(CATEGORY_LABELS).map(([k, l]) => `<label><input type="radio" name="category" value="${k}" required> ${l}</label>`).join("")}
         <label><input type="checkbox" name="champion"> Returning champion</label>
@@ -385,6 +394,7 @@ async function renderAdmin() {
         .join("")}</select>
       <button>Add</button>
     </form>`;
+  attachPlaceSearch($('form[data-form="admin-pizza"]'));
 }
 
 // ---------- events ----------
@@ -419,8 +429,8 @@ view.addEventListener("submit", async (e) => {
         await api("POST", "/api/me", { name: data.name });
         return init();
       case "pizza":
-        if (form.dataset.id) await api("PATCH", `/api/pizzas/${form.dataset.id}`, data);
-        else await api("POST", "/api/pizzas", data);
+        if (form.dataset.id) await api("PATCH", `/api/pizzas/${form.dataset.id}`, locationFields(data));
+        else await api("POST", "/api/pizzas", locationFields(data));
         toast("Saved");
         return loadTab();
       case "score": {
@@ -430,7 +440,7 @@ view.addEventListener("submit", async (e) => {
         return loadTab();
       }
       case "admin-pizza":
-        await api("POST", "/api/admin/pizzas", { ...data, champion: data.champion === "on", bringer_id: data.bringer_id || null });
+        await api("POST", "/api/admin/pizzas", { ...locationFields(data), champion: data.champion === "on", bringer_id: data.bringer_id || null });
         toast("Added");
         return loadTab();
     }
@@ -473,6 +483,11 @@ view.addEventListener("click", async (e) => {
       await api("POST", `/api/admin/users/${d.checkin}`, { checked_in: d.value === "true" });
     } else if (d.pizza) {
       await api("POST", `/api/admin/pizzas/${d.pizza}`, { [d.field]: d.value === "true" });
+    } else if (d.fixLocation) {
+      const link = prompt(`Paste a Google Maps link for ${d.name}:`);
+      if (!link) return;
+      await api("POST", `/api/admin/pizzas/${d.fixLocation}`, { maps_link: link });
+      toast("Pin updated");
     } else if (d.deletePizza) {
       if (!confirm("Delete this pizza?")) return;
       await api("DELETE", `/api/admin/pizzas/${d.deletePizza}`);
