@@ -60,7 +60,10 @@ async function route(ctx, method, path) {
   if (path === "tasting/score" && method === "PUT") {
     const body = await readJson(ctx.request);
     if (ctx.settings.phase !== "tasting") throw bad("scoring is closed");
-    await scoreSlice(ctx.env, ctx.user.id, Number(body.pizza_id), parseScore(body.score));
+    const score = body.score === undefined ? undefined : parseScore(body.score);
+    const note = body.note === undefined ? undefined : text(body.note, "note", 280);
+    if (score === undefined && note === undefined) throw bad("send a score or a note");
+    await scoreSlice(ctx.env, ctx.user.id, Number(body.pizza_id), score, note);
     return json({ ok: true });
   }
 
@@ -245,7 +248,7 @@ async function claim(ctx, id, claiming) {
 
 async function tasting(ctx) {
   const { results: scored } = await ctx.env.DB.prepare(
-    `SELECT t.pizza_id, t.position, t.score, p.box, p.restaurant, p.kind, p.category
+    `SELECT t.pizza_id, t.position, t.score, t.note, p.box, p.restaurant, p.kind, p.category
        FROM tastings t JOIN pizzas p ON p.id = t.pizza_id
       WHERE t.user_id = ? AND t.score IS NOT NULL ORDER BY t.position`
   )

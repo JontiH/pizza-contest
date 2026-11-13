@@ -156,7 +156,9 @@ export function mountExplorer(root, data, { official = "" } = {}) {
       <h3>Everyone's score</h3>
       <table class="list">${rows
         .map(
-          (o) => `<tr><td><button class="link" data-voter="${o.v}">${esc(voter.get(o.v).name)}</button></td><td><strong>${fmt(o.s, 2)}</strong></td><td class="hint">${ordinal(o.pos)} slice</td></tr>`
+          (o) => `<tr><td><button class="link" data-voter="${o.v}">${esc(voter.get(o.v).name)}</button></td><td><strong>${fmt(o.s, 2)}</strong></td><td class="hint">${ordinal(o.pos)} slice</td></tr>${
+            o.note ? `<tr class="note-row"><td colspan="3">“${esc(o.note)}”</td></tr>` : ""
+          }`
         )
         .join("")}</table>`;
     if (!dialog.open) dialog.showModal();
@@ -188,7 +190,9 @@ export function mountExplorer(root, data, { official = "" } = {}) {
       <h3>Their ranking</h3>
       <table class="list">${info.ranking
         .map(
-          (o, i) => `<tr><td>${i + 1}.</td><td><button class="link" data-pizza="${o.p}">${pname(o.p)}</button> <span class="hint">${CATEGORY_LABELS[pizza.get(o.p).category]}</span></td><td><strong>${fmt(o.s, 2)}</strong></td><td class="hint">${ordinal(o.pos)} slice</td></tr>`
+          (o, i) => `<tr><td>${i + 1}.</td><td><button class="link" data-pizza="${o.p}">${pname(o.p)}</button> <span class="hint">${CATEGORY_LABELS[pizza.get(o.p).category]}</span></td><td><strong>${fmt(o.s, 2)}</strong></td><td class="hint">${ordinal(o.pos)} slice</td></tr>${
+            o.note ? `<tr class="note-row"><td></td><td colspan="3">“${esc(o.note)}”</td></tr>` : ""
+          }`
         )
         .join("")}</table>`;
     if (!dialog.open) dialog.showModal();

@@ -230,12 +230,21 @@ async function renderTaste() {
          <ul class="cards scored-list">${t.scored
            .map(
              (s) => `<li class="card">
-               <span class="hint">${s.position}.</span>
-               <span class="grow">${pizzaLine(s)}</span>
+               <div class="row">
+                 <span class="hint">${s.position}.</span>
+                 <span class="grow">${pizzaLine(s)}</span>
+                 ${
+                   editable
+                     ? `<input type="number" min="1" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">`
+                     : `<strong>${fmt(s.score, 2)}</strong>`
+                 }
+               </div>
                ${
                  editable
-                   ? `<input type="number" min="1" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">`
-                   : `<strong>${fmt(s.score, 2)}</strong>`
+                   ? `<input class="note-input" maxlength="280" placeholder="Notes" value="${esc(s.note)}" data-renote="${s.pizza_id}" aria-label="Notes">`
+                   : s.note
+                     ? `<p class="meta">“${esc(s.note)}”</p>`
+                     : ""
                }
              </li>`
            )
@@ -268,6 +277,8 @@ async function renderTaste() {
         <div class="score-picker">
           <input type="range" min="1" max="10" step="0.1" value="5.5" data-sync="range" aria-label="Score slider">
           <input type="number" class="big" name="score" min="1" max="10" step="0.01" required placeholder="–" data-sync="number" aria-label="Score">
+          <textarea name="note" maxlength="280" rows="2" placeholder="Notes (optional): crust, sauce, would you go back?"></textarea>
+          <p class="hint">Scores and notes are shown with your name after the party.</p>
         </div>
         <div class="stack">
           <button>Save score, next slice</button>
@@ -435,7 +446,7 @@ view.addEventListener("submit", async (e) => {
         return loadTab();
       case "score": {
         const pizzaId = Number(form.dataset.id);
-        await api("PUT", "/api/tasting/score", { pizza_id: pizzaId, score: data.score });
+        await api("PUT", "/api/tasting/score", { pizza_id: pizzaId, score: data.score, note: data.note || "" });
         await api("POST", "/api/tasting/next");
         return loadTab();
       }
@@ -509,7 +520,10 @@ view.addEventListener("input", (e) => {
 view.addEventListener("change", async (e) => {
   const el = e.target;
   try {
-    if (el.dataset.rescore) {
+    if (el.dataset.renote) {
+      await api("PUT", "/api/tasting/score", { pizza_id: Number(el.dataset.renote), note: el.value });
+      toast("Note saved");
+    } else if (el.dataset.rescore) {
       await api("PUT", "/api/tasting/score", { pizza_id: Number(el.dataset.rescore), score: el.value });
       toast("Score updated");
     } else if (el.dataset.bringer) {

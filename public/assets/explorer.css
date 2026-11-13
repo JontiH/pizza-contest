@@ -34,6 +34,7 @@ table.h2h td.loss { background: #f7dcd9; }
 .pills { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; font-size: 0.88rem; }
 .pills li { background: var(--card); padding: 0.25rem 0.55rem; border-radius: 1rem; }
 table.list { width: 100%; }
-table.list tr + tr td { border-top: 1px solid var(--line); }
+table.list tr + tr:not(.note-row) td { border-top: 1px solid var(--line); }
+table.list .note-row td { color: var(--muted); font-style: italic; font-size: 0.9rem; padding-top: 0; }
 dl dt { font-weight: 700; margin-top: 0.5rem; }
 dl dd { margin: 0; }
