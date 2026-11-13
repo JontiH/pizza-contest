@@ -5,5 +5,5 @@ compatibility_date = "2026-11-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "pizza-contest"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "531ff33a-b88a-43cd-bacd-a317c5ed2f83"
 migrations_dir = "migrations"
