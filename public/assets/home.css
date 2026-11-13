@@ -53,6 +53,6 @@
 .guy #mouth[data-shape="smile"] .smile,
 .guy #mouth[data-shape="grin"] .grin,
 .guy #mouth[data-shape="o"] .o { display: inline; }
-.guy .finger { fill: none; stroke-width: 7; display: none; }
+.guy .finger { fill: #fff; stroke: var(--ink); stroke-width: 3; display: none; }
 .guy .hand.point .finger { display: inline; }
 .guy .floor { fill: #ead9c6; stroke: none; }

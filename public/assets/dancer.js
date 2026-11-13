@@ -75,7 +75,7 @@ function carltonPoint(beat) {
   const bob = Math.abs(Math.sin(Math.PI * beat));
   return {
     a: { at: [101, 178], bend: 1 },
-    b: { at: [168, 46], bend: -1, point: true },
+    b: { at: [186, 52], bend: 1, point: true },
     x: 7 * s,
     y: 4 * bob,
     r: -0.12 + 0.06 * s,
@@ -166,6 +166,136 @@ export const MACARENA = {
   },
 };
 
+// ---------- Disco point ----------
+// Saturday Night Fever: finger up to the top corner, then down across the
+// body, one per beat, hip popping out with each point.
+
+const discoPoint = (beat) => {
+  const i = Math.floor(beat);
+  const k = snap(beat - i);
+  const up = i % 2 === 0;
+  const UP = { at: [196, 50], bend: 1, point: true };
+  const DOWN = { at: [104, 196], bend: -1, point: true };
+  const from = up ? DOWN : UP;
+  const to = up ? UP : DOWN;
+  const pop = up ? 1 : -1;
+  const prevPop = -pop;
+  const p = lerp(prevPop, pop, k);
+  return {
+    a: { at: [101, 176], bend: 1 },
+    b: { ...(k < 0.5 ? from : to), at: lerp2(from.at, to.at, k) },
+    x: 9 * p,
+    y: 4 * Math.abs(Math.sin(Math.PI * beat)),
+    r: -0.11 * p,
+    sx: 1,
+    feet: { a: [FEET.a[0] - 4, FLOOR_Y], b: [FEET.b[0] + 10 * Math.max(0, -p), FLOOR_Y - 6 * Math.max(0, -p)] },
+    mouth: up ? "o" : "grin",
+    look: up ? 4 : -3,
+    lift: up ? 1 : 0,
+  };
+};
+
+// ---------- The Sprinkler ----------
+// One hand behind the head, the other arm ticks out in three stops and
+// sweeps back. Twice per eight beats.
+
+const SPRINKLE = [
+  [6, 152],
+  [-2, 122],
+  [8, 92],
+];
+const sprinkler = (beat) => {
+  const b = beat % 4;
+  const i = Math.floor(b);
+  const f = b - i;
+  let at;
+  if (i < 2) at = lerp2(SPRINKLE[i], SPRINKLE[i + 1], snap(f));
+  else if (i === 2) at = SPRINKLE[2];
+  else at = lerp2(SPRINKLE[2], SPRINKLE[0], smooth(f));
+  const tick = i < 3 ? 1 - snap(f) : 0;
+  return {
+    a: { at, bend: -1 },
+    b: { at: [136, 34], bend: -1 },
+    x: -4 + 2 * i,
+    y: 3 + 4 * tick,
+    r: 0.04 * i - 0.06,
+    sx: 0.92,
+    feet: { a: [FEET.a[0] - 6, FLOOR_Y], b: [FEET.b[0], FLOOR_Y - 5 * tick] },
+    mouth: "grin",
+    look: -3,
+    lift: 0,
+  };
+};
+
+// ---------- The Twist ----------
+// Knees bend down low and come back up over eight beats while the hips
+// twist once a beat and the arms swing at waist height the other way.
+
+const twist = (beat) => {
+  const depth = 22 * Math.sin((Math.PI * beat) / 8);
+  const t = Math.sin(2 * Math.PI * beat);
+  return {
+    a: { at: [96 - 30 * t, 172], bend: 1 },
+    b: { at: [144 - 30 * t, 172], bend: -1 },
+    x: 4 * t,
+    y: depth,
+    r: 0.17 * t,
+    sx: 1 - 0.06 * Math.abs(t),
+    feet: { a: [FEET.a[0] - 8, FLOOR_Y], b: [FEET.b[0] + 8, FLOOR_Y] },
+    mouth: depth > 14 ? "o" : "grin",
+    look: -3 * t,
+    lift: 0,
+  };
+};
+
+// ---------- Medley ----------
+// About 30 seconds: 48 beats at 96 BPM. The Carlton always opens; on the
+// site the other four reshuffle every loop (cycle 0 keeps this order so the
+// exported GIF loops cleanly). Each dance hands off to the next over half
+// a beat.
+
+const SEGMENTS = [
+  { name: "carlton", beats: 8, pose: (b) => carltonSwing(b, 1, 1, 166) },
+  { name: "disco", beats: 8, pose: discoPoint },
+  { name: "macarena", beats: 16, pose: (b) => MACARENA.pose(b) },
+  { name: "sprinkler", beats: 8, pose: sprinkler },
+  { name: "twist", beats: 8, pose: twist },
+];
+
+function order(cycle) {
+  const rest = SEGMENTS.slice(1);
+  let seed = cycle * 2654435761;
+  for (let i = rest.length - 1; cycle > 0 && i > 0; i--) {
+    seed = (seed * 1103515245 + 12345) >>> 0;
+    const j = seed % (i + 1);
+    [rest[i], rest[j]] = [rest[j], rest[i]];
+  }
+  return [SEGMENTS[0], ...rest];
+}
+
+export const MEDLEY = {
+  name: "a medley",
+  bpm: 96,
+  beats: SEGMENTS.reduce((n, s) => n + s.beats, 0),
+  pose(beat, cycle = 0) {
+    const segs = order(cycle);
+    let start = 0;
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      if (beat < start + seg.beats) {
+        const local = beat - start;
+        const p = seg.pose(local);
+        const left = seg.beats - local;
+        if (left > 0.5) return p;
+        const next = i + 1 < segs.length ? segs[i + 1] : order(cycle + 1)[0];
+        return blend(p, next.pose(0), smooth(1 - left / 0.5));
+      }
+      start += seg.beats;
+    }
+    return segs[0].pose(0);
+  },
+};
+
 // ---------- Rig ----------
 
 function ik(s, t, [l1, l2], bend) {
@@ -192,7 +322,7 @@ function bodyMatrix(x, y, r, sx) {
 
 const f1 = (n) => n.toFixed(1);
 
-export function mountDancer(svg, routine = CARLTON) {
+export function mountDancer(svg, routine = MEDLEY) {
   const $ = (id) => svg.querySelector(`#${id}`);
   const parts = {
     body: $("body"),
@@ -209,8 +339,9 @@ export function mountDancer(svg, routine = CARLTON) {
   const limb = (path, s, j, e) => path.setAttribute("d", `M${f1(s[0])} ${f1(s[1])} Q${f1(j[0])} ${f1(j[1])} ${f1(e[0])} ${f1(e[1])}`);
 
   function render(ms) {
-    const beat = (((ms / beatMs) % routine.beats) + routine.beats) % routine.beats;
-    const p = routine.pose(beat);
+    const total = Math.max(0, ms / beatMs);
+    const cycle = Math.floor(total / routine.beats);
+    const p = routine.pose(total - cycle * routine.beats, cycle);
     const toWorld = bodyMatrix(p.x, p.y, p.r, p.sx);
     parts.body.setAttribute(
       "transform",

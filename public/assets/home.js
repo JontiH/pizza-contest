@@ -1,6 +1,6 @@
-import { CARLTON, mountDancer } from "/assets/dancer.js";
+import { MEDLEY, mountDancer } from "/assets/dancer.js";
 
-const dancer = mountDancer(document.getElementById("guy"), CARLTON);
+const dancer = mountDancer(document.getElementById("guy"), MEDLEY);
 const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Tests and the GIF export drive the dance frame by frame.
