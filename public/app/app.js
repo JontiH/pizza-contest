@@ -116,6 +116,38 @@ async function loadTab() {
   }
 }
 
+const mapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${p.restaurant} Toronto`)}`;
+const mapLink = (p) => `<a class="map-link" href="${mapsUrl(p)}" target="_blank" rel="noopener noreferrer">Map</a>`;
+
+function championCard(board, open) {
+  const unclaimed = board.pizzas.filter((p) => p.champion && !p.bringer);
+  const mine = board.pizzas.filter((p) => p.champion && p.mine);
+  if (!open || (!unclaimed.length && !mine.length)) return "";
+  return `
+    <section class="card champs">
+      ${
+        unclaimed.length
+          ? `<h2 style="margin-top:0">Not sure what to bring?</h2>
+             <p class="hint">Last contest's top ${board.pizzas.filter((p) => p.champion).length} need someone to bring them back.</p>
+             <ul class="cards">${unclaimed
+               .map(
+                 (p) => `<li class="row champ-row">
+                   <span class="grow">🏆 <strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""} ${mapLink(p)}</span>
+                   <button class="small" data-act="claim" data-id="${p.id}">I'll bring it</button>
+                 </li>`
+               )
+               .join("")}</ul>`
+          : ""
+      }
+      ${mine
+        .map(
+          (p) => `<p class="row champ-row"><span class="grow">You're bringing back 🏆 <strong>${esc(p.restaurant)}</strong> ${mapLink(p)}</span>
+            <button class="small secondary" data-act="unclaim" data-id="${p.id}">Unclaim</button></p>`
+        )
+        .join("")}
+    </section>`;
+}
+
 function pizzaLine(p) {
   return `${p.box ? `<span class="badge box">#${p.box}</span> ` : ""}<strong>${esc(p.restaurant)}</strong>${p.kind ? ` · ${esc(p.kind)}` : ""}`;
 }
@@ -140,15 +172,8 @@ async function renderLineup() {
                       ${pizzaLine(p)}
                       ${p.champion ? ` <span class="badge champ">🏆 returning champion</span>` : ""}
                       ${p.finished ? ` <span class="badge done">finished</span>` : p.arrived ? ` <span class="badge">on the table</span>` : ""}
-                      <p class="meta">${p.bringer ? `Brought by ${esc(p.bringer)}` : "Needs a volunteer"}</p>
+                      <p class="meta">${p.bringer ? `Brought by ${esc(p.bringer)}` : "Needs a volunteer"} · ${mapLink(p)}</p>
                     </div>
-                    ${
-                      open && p.champion && !p.bringer
-                        ? `<button class="small" data-act="claim" data-id="${p.id}">I'll bring it</button>`
-                        : open && p.champion && p.mine
-                          ? `<button class="small secondary" data-act="unclaim" data-id="${p.id}">Unclaim</button>`
-                          : ""
-                    }
                   </div>
                 </li>`
               )
@@ -179,6 +204,7 @@ async function renderLineup() {
           </form>`
         : `<p class="hint">The lineup is locked.</p>`
     }
+    ${championCard(board, open)}
     ${section("platonic")}
     ${section("non_platonic")}
     <h2>Who's coming (${board.guests.length})</h2>
