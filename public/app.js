@@ -209,4 +209,4 @@ $("#vote-list").addEventListener("change", (e) => {
 refresh().catch((err) => toast(err.message));
 setInterval(() => {
   if (document.visibilityState === "visible") refresh().catch(() => {});
-}, 10000);
+}, 15000);

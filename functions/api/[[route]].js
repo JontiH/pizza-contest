@@ -30,6 +30,14 @@ export async function onRequest({ request, env, params }) {
   }
 
   try {
+    return await route(request, env, path, method, url);
+  } finally {
+    if (method !== "GET") shared = null;
+  }
+}
+
+async function route(request, env, path, method, url) {
+  try {
     if (method === "GET" && path === "state") return json(await getState(env, url.searchParams.get("voter")));
     if (method === "POST" && path === "pizzas") return json(await addPizza(env, await body(request)), 201);
     if (method === "DELETE" && /^pizzas\/\d+$/.test(path)) {
@@ -51,29 +59,52 @@ async function body(request) {
   }
 }
 
-async function getState(env, voter) {
-  const pizzas = await env.DB.prepare(
-    `SELECT p.id, p.restaurant, p.pizza, p.style, p.brought_by, p.notes, p.creator_id,
-            AVG(v.score) AS avg, COUNT(v.score) AS votes
-       FROM pizzas p LEFT JOIN votes v ON v.pizza_id = p.id
-      GROUP BY p.id ORDER BY p.id`
-  ).all();
+// Every phone polls every few seconds, and each uncached read scans every
+// vote. Sharing one result for a few seconds keeps a party of 20 well under
+// D1's free 5M rows read per day.
+const SHARED_TTL_MS = 10_000;
+let shared = null;
 
-  const voters = await env.DB.prepare(
-    `SELECT voter_name AS name, COUNT(*) AS votes FROM votes
-      GROUP BY voter_id ORDER BY MIN(updated_at)`
-  ).all();
+async function sharedState(env) {
+  if (shared && Date.now() - shared.at < SHARED_TTL_MS) return shared.data;
 
-  let mine = [];
-  if (voter) {
-    mine = (
-      await env.DB.prepare(`SELECT pizza_id, score, note FROM votes WHERE voter_id = ?`).bind(voter).all()
-    ).results;
+  const [pizzas, votes] = await env.DB.batch([
+    env.DB.prepare(`SELECT id, restaurant, pizza, style, brought_by, notes, creator_id FROM pizzas ORDER BY id`),
+    env.DB.prepare(`SELECT pizza_id, voter_id, voter_name, score FROM votes ORDER BY updated_at`),
+  ]);
+
+  const tally = new Map();
+  const voters = new Map();
+  for (const v of votes.results) {
+    const t = tally.get(v.pizza_id) || { sum: 0, n: 0 };
+    t.sum += v.score;
+    t.n += 1;
+    tally.set(v.pizza_id, t);
+    const who = voters.get(v.voter_id) || { name: v.voter_name, votes: 0 };
+    who.votes += 1;
+    voters.set(v.voter_id, who);
   }
 
+  const data = {
+    pizzas: pizzas.results.map((p) => {
+      const t = tally.get(p.id);
+      return { ...p, avg: t ? t.sum / t.n : null, votes: t ? t.n : 0 };
+    }),
+    voters: [...voters.values()],
+  };
+  shared = { at: Date.now(), data };
+  return data;
+}
+
+async function getState(env, voter) {
+  const { pizzas, voters } = await sharedState(env);
+  const mine = voter
+    ? (await env.DB.prepare(`SELECT pizza_id, score, note FROM votes WHERE voter_id = ?`).bind(voter).all()).results
+    : [];
+
   return {
-    pizzas: pizzas.results.map(({ creator_id, ...p }) => ({ ...p, mine: !!voter && creator_id === voter })),
-    voters: voters.results,
+    pizzas: pizzas.map(({ creator_id, ...p }) => ({ ...p, mine: !!voter && creator_id === voter })),
+    voters,
     myVotes: mine,
   };
 }

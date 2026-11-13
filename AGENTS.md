@@ -42,6 +42,11 @@ Personal repo `JontiH/pizza-contest`. Local git config commits as
 | Pages project | `pizza-contest` (`pizza-contest.pages.dev`) |
 | D1 database | `pizza-contest` (ID in `wrangler.toml`) |
 
+`scripts/setup.sh` does the one-time setup. It opens a pre-filled token
+page in the dashboard, then creates the D1 database, writes its ID into
+`wrangler.toml`, and sets the repo secret, the `PARTY_CODE` secret and the
+custom domain. It's safe to re-run.
+
 Pushes to `main` run `.github/workflows/deploy.yml`: D1 migrations, then
 `wrangler pages deploy`. The `CLOUDFLARE_API_TOKEN` repo secret and the
 local `.env` (gitignored, see `.env.example`) hold a token for this
