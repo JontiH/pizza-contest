@@ -1,5 +1,6 @@
 import { isAdmin, logout, notifyAdmins, notifyApproved, sessionEmail } from "../../lib/auth.js";
 import { HttpError, bad, handle, json, readJson, text } from "../../lib/http.js";
+import { FAQ } from "../../lib/faq.js";
 import { buildResults } from "../../lib/results.js";
 import { geocodeAddress, guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
 import { currentSlice, nextSlice, parseScore, scoreSlice, skipSlice } from "../../lib/tasting.js";
@@ -85,10 +86,13 @@ async function route(ctx, method, path) {
 }
 
 // Party details live only in the settings table (never in the public
-// repo) and are only served to approved guests.
+// repo) and are only served to approved guests. The FAQ is the repo's
+// shared text plus whatever the admin added in the settings table.
 const INFO_FIELDS = ["info_when", "info_address", "info_unit", "info_buzzer", "info_parking", "info_body", "info_lat", "info_lon"];
 function info(settings) {
-  return Object.fromEntries(INFO_FIELDS.map((k) => [k.slice(5), settings[k] ?? ""]));
+  const out = Object.fromEntries(INFO_FIELDS.map((k) => [k.slice(5), settings[k] ?? ""]));
+  out.body = [FAQ, out.body.trim()].filter(Boolean).join("\n\n");
+  return out;
 }
 
 function me(ctx) {

@@ -441,7 +441,7 @@ async function renderAdmin() {
         <label class="field">Unit<input name="unit" maxlength="40" value="${esc(a.settings.info_unit)}"></label>
         <label class="field">Buzzer code<input name="buzzer" maxlength="40" value="${esc(a.settings.info_buzzer)}"></label>
         <label class="field">Parking<input name="parking" maxlength="200" value="${esc(a.settings.info_parking)}"></label>
-        <label class="field">FAQ <span class="hint">"## " starts a heading, "- " a bullet, **bold**</span>
+        <label class="field">More FAQ <span class="hint">(added after the built-in questions) "## " starts a heading, "- " a bullet, **bold**</span>
           <textarea name="body" rows="14" maxlength="5000">${esc(a.settings.info_body)}</textarea></label>
         <button>Save info</button>
       </form>

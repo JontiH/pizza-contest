@@ -40,10 +40,13 @@ OpenStreetMap tiles; tile requests must send the origin as Referer
 
 ## Info tab
 
-Party details (`info_*` settings: date, address, unit, buzzer, parking,
-FAQ text) are only in the D1 settings table and only served by `/api/info`
-to approved guests. Never put them in the repo, migrations or logs; the
-repo is public. Admins edit them under Admin > Edit info.
+Party details (`info_*` settings: date, address, unit, buzzer, parking)
+are only in the D1 settings table and only served by `/api/info` to
+approved guests. Never put them in the repo, migrations or logs; the repo
+is public. Admins edit them under Admin > Edit info.
+
+The FAQ is `lib/faq.js` (shared questions, edit it in the repo) followed by
+the optional "More FAQ" text from D1 (`info_body`) for anything private.
 
 ## Privacy rules
 
@@ -61,7 +64,8 @@ repo is public. Admins edit them under Admin > Edit info.
 cookie (30 days). Codes last 10 minutes, allow 5 tries, one per minute per
 email. Sends are capped at 90 a day site-wide (Resend's free plan allows
 100) and 40 per IP (guests at the party share the WiFi). Admins are the
-addresses in the `ADMIN_EMAILS` secret.
+addresses in the `ADMIN_EMAILS` secret. Admins get an email when someone
+signs up, and a guest gets one when the admin approves them.
 
 Resend's DNS records (DKIM, SPF and MX on `send.`) were added by its
 Cloudflare auto-configure; `_dmarc` is `p=none`.
