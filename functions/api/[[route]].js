@@ -55,6 +55,7 @@ async function route(ctx, method, path) {
   if (path === "tasting/skip" && method === "POST") {
     await readJson(ctx.request);
     requireTasting(ctx);
+    if (ctx.settings.allow_skip !== "1") throw bad("skipping is turned off");
     return json({ current: await skipSlice(ctx.env, ctx.user.id) });
   }
   if (path === "tasting/score" && method === "PUT") {
@@ -280,6 +281,7 @@ async function tasting(ctx) {
   return {
     phase: ctx.settings.phase,
     checkedIn: !!ctx.user.checked_in_at,
+    allowSkip: ctx.settings.allow_skip === "1",
     current: await currentSlice(ctx.env, ctx.user.id),
     scored,
     left,
@@ -364,6 +366,13 @@ async function admin(ctx, method, path) {
     if (body.phase !== undefined) {
       if (!PHASES.includes(body.phase)) throw bad("bad phase");
       await env.DB.prepare(`UPDATE settings SET value = ? WHERE key = 'phase'`).bind(body.phase).run();
+    }
+    if (body.allow_skip !== undefined) {
+      await env.DB.prepare(
+        `INSERT INTO settings (key, value) VALUES ('allow_skip', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`
+      )
+        .bind(body.allow_skip ? "1" : "0")
+        .run();
     }
     if (body.official_method !== undefined) {
       if (!METHODS.includes(body.official_method)) throw bad("bad method");

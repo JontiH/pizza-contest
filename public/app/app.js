@@ -160,7 +160,7 @@ function pickForm(own, editing) {
       <input name="kind" maxlength="60" placeholder="e.g. Pepperoni, Vodka. Leave blank for plain cheese" value="${esc(own?.kind)}" ${own?.category === "non_platonic" ? "required" : ""}>
     </label>
     <label class="field">Extra notes <span class="hint">(optional)</span>
-      <input name="notes" maxlength="140" placeholder="e.g. extra crispy, picking it up at 6" value="${esc(own?.notes)}">
+      <input name="notes" maxlength="140" value="${esc(own?.notes)}">
     </label>
     <fieldset>
       ${Object.entries(CATEGORY_LABELS)
@@ -324,12 +324,11 @@ async function renderTaste() {
         <div class="score-picker">
           <input type="range" min="1" max="10" step="0.1" value="5.5" data-sync="range" aria-label="Score slider">
           <input type="number" class="big" name="score" min="1" max="10" step="0.01" required placeholder="–" data-sync="number" aria-label="Score">
-          <textarea name="note" maxlength="280" rows="2" placeholder="Notes (optional): crust, sauce, would you go back?"></textarea>
-          <p class="hint">Scores and notes are shown with your name after the party.</p>
+          <textarea name="note" maxlength="280" rows="2" placeholder="Notes (optional)"></textarea>
         </div>
         <div class="stack">
           <button>Save score, next slice</button>
-          <button type="button" class="secondary" data-act="skip">I can't get to box #${c.box} right now</button>
+          ${t.allowSkip ? `<button type="button" class="secondary" data-act="skip">Skip this pizza for now</button>` : ""}
         </div>
       </form>`;
   } else if (t.left > 0) {
@@ -374,6 +373,9 @@ async function renderAdmin() {
         ${METHODS.map((m) => `<option value="${m.key}" ${a.settings.official_method === m.key ? "selected" : ""}>${m.label}</option>`).join("")}
       </select>
     </div>
+    <p class="row">
+      <label><input type="checkbox" data-act-change="allow-skip" ${a.settings.allow_skip === "1" ? "checked" : ""}> Let voters skip a pizza for now</label>
+    </p>
     <p class="row"><a href="/results/">Preview results (admin only)</a></p>
 
     <h2>Waiting for approval (${pending.length})</h2>
@@ -601,6 +603,9 @@ view.addEventListener("change", async (e) => {
     } else if (el.dataset.bringer) {
       await api("POST", `/api/admin/pizzas/${el.dataset.bringer}`, { bringer_id: el.value || null });
       toast("Saved");
+    } else if (el.dataset.actChange === "allow-skip") {
+      await api("POST", "/api/admin/settings", { allow_skip: el.checked });
+      toast(el.checked ? "Voters can skip a pizza" : "Skipping turned off");
     } else if (el.dataset.actChange === "method") {
       await api("POST", "/api/admin/settings", { official_method: el.value });
       toast("Official method saved");
