@@ -1,131 +1,75 @@
-html, body { margin: 0; min-height: 100%; }
-body {
-  background: #000;
-  color: #fff;
-  font-family: "Comic Sans MS", "Comic Neue", "Chalkboard SE", cursive;
+.home {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.4rem;
+  padding: 2rem 1rem;
   text-align: center;
-  overflow-x: hidden;
 }
-.stars {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(1px 1px at 20px 30px, #fff, transparent),
-    radial-gradient(1px 1px at 120px 80px, #ccf, transparent),
-    radial-gradient(2px 2px at 60px 150px, #fff, transparent),
-    radial-gradient(1px 1px at 170px 190px, #ffd, transparent),
-    radial-gradient(1px 1px at 90px 10px, #fff, transparent),
-    #000;
-  background-size: 200px 200px;
-  animation: drift 30s linear infinite;
-}
-@keyframes drift { to { background-position: -200px 200px; } }
+.home h1 { margin: 0; font-size: clamp(2.4rem, 10vw, 4rem); line-height: 1; }
+.home .v { color: var(--red); }
+.home .when { margin: 0; color: var(--muted); font-size: 1.15rem; }
+.home .enter { margin-top: 0.5rem; font-size: 1.25rem; padding: 0.75rem 2.8rem; border-radius: 999px; }
+.home .results-link { margin-top: 0.4rem; }
+.home .results-link[hidden] { display: none; }
 
-marquee {
-  background: #00f;
-  color: #ff0;
-  font-weight: bold;
-  padding: 0.3rem 0;
-  border-bottom: 3px ridge #888;
-}
+.guy { width: min(60vw, 230px); height: auto; margin: 1rem 0 0.5rem; overflow: visible; }
+.guy path, .guy circle, .guy ellipse { stroke: var(--ink); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.guy .cheese { fill: #ffc93c; }
+.guy .crust { fill: none; stroke: #c8812f; stroke-width: 16; }
+.guy .pep { fill: var(--red); stroke-width: 3; }
+.guy .arm path, .guy .leg path { fill: none; stroke-width: 5; }
+.guy .glove { fill: #fff; }
+.guy .shoe { fill: var(--red); }
+.guy .face circle { fill: var(--ink); stroke: none; }
+.guy .smile { fill: none; }
+.guy .floor { fill: #ead9c6; stroke: none; }
 
-.wordart {
-  margin: 1.5rem 0 0;
-  font-family: Impact, "Arial Black", sans-serif;
-  font-size: clamp(3.5rem, 14vw, 8rem);
-  line-height: 0.9;
-  letter-spacing: 0.04em;
-  background: linear-gradient(180deg, #fff200 0%, #ff8a00 45%, #ff1f6b 55%, #b000ff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(2px 2px 0 #00f) drop-shadow(2px 2px 0 #00c) drop-shadow(2px 2px 0 #009) drop-shadow(2px 2px 0 #006);
-  transform: perspective(400px) rotateX(18deg) skewX(-6deg);
-  animation: wobble 3s ease-in-out infinite;
-}
-@keyframes wobble {
-  50% { transform: perspective(400px) rotateX(18deg) skewX(6deg) scale(1.04); }
-}
+/* Stepped timing so it moves like a looping GIF rather than smoothly. */
+.guy .body, .guy .arm, .guy .leg { transform-box: view-box; }
+.guy .body { transform-origin: 100px 240px; animation: groove 0.9s steps(1) infinite; }
+.guy .arm-l { transform-origin: 46px 92px; animation: arm-l 0.9s steps(1) infinite; }
+.guy .arm-r { transform-origin: 154px 92px; animation: arm-r 0.9s steps(1) infinite; }
+.guy .leg-l { transform-origin: 88px 196px; animation: leg-l 0.9s steps(1) infinite; }
+.guy .leg-r { transform-origin: 112px 196px; animation: leg-r 0.9s steps(1) infinite; }
+.guy .floor { transform-box: view-box; transform-origin: 100px 250px; animation: floor 0.9s steps(1) infinite; }
 
-.stage {
-  position: relative;
-  width: min(70vw, 320px);
-  height: min(93vw, 427px);
-  margin: 0.5rem auto 0;
-  perspective: 900px;
+@keyframes groove {
+  0% { transform: translate(-6px, 0) rotate(-6deg); }
+  25% { transform: translate(0, -10px) rotate(0deg); }
+  50% { transform: translate(6px, 0) rotate(6deg); }
+  75% { transform: translate(0, -10px) rotate(0deg); }
 }
-.bounce { position: absolute; inset: 0; animation: bounce 0.6s ease-in-out infinite alternate; transform-style: preserve-3d; }
-.spin { position: absolute; inset: 0; transform-style: preserve-3d; animation: spin 4.8s cubic-bezier(.6, 0, .4, 1) infinite; }
-.spin svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.slab path { fill: #a8560f; }
-.slab:nth-child(1) { transform: translateZ(-3px); }
-.slab:nth-child(2) { transform: translateZ(-6px); }
-.slab:nth-child(3) { transform: translateZ(-9px); }
-.slab:nth-child(4) { transform: translateZ(-12px); }
-.slab:nth-child(5) { transform: translateZ(-15px); filter: brightness(0.8); }
-.slab:nth-child(6) { transform: translateZ(-18px); filter: brightness(0.6); }
-.slice { transform: translateZ(0); }
-
-@keyframes bounce {
-  from { transform: translateY(0) rotate(-7deg) scaleY(0.96); }
-  to { transform: translateY(-34px) rotate(7deg) scaleY(1.04); }
+@keyframes arm-l {
+  0% { transform: rotate(40deg); }
+  25% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+  75% { transform: rotate(0deg); }
 }
-@keyframes spin {
-  0%, 55% { transform: rotateY(0); }
-  80% { transform: rotateY(360deg); }
-  100% { transform: rotateY(360deg); }
+@keyframes arm-r {
+  0% { transform: rotate(40deg); }
+  25% { transform: rotate(0deg); }
+  50% { transform: rotate(-40deg); }
+  75% { transform: rotate(0deg); }
 }
-
-.arm, .leg { transform-box: view-box; }
-.arm-l { transform-origin: 78px 165px; animation: wave 0.6s ease-in-out infinite alternate; }
-.arm-r { transform-origin: 222px 165px; animation: wave 0.6s ease-in-out infinite alternate-reverse; }
-.leg-l { transform-origin: 132px 300px; animation: kick 0.6s ease-in-out infinite alternate; }
-.leg-r { transform-origin: 168px 300px; animation: kick 0.6s ease-in-out infinite alternate-reverse; }
-.pupil { animation: look 2.4s steps(1) infinite; }
-@keyframes wave { from { transform: rotate(-25deg); } to { transform: rotate(30deg); } }
-@keyframes kick { from { transform: rotate(-18deg); } to { transform: rotate(14deg); } }
-@keyframes look { 50% { transform: translateX(-7px); } }
-
-.shadow {
-  position: absolute;
-  left: 25%;
-  right: 25%;
-  bottom: -4px;
-  height: 18px;
-  border-radius: 50%;
-  background: radial-gradient(#ff00ff88, transparent 70%);
-  animation: shadow 0.6s ease-in-out infinite alternate;
+@keyframes leg-l {
+  0% { transform: rotate(18deg); }
+  25% { transform: rotate(0deg); }
+  50% { transform: rotate(0deg); }
+  75% { transform: rotate(0deg); }
 }
-@keyframes shadow { to { transform: scale(0.7); opacity: 0.6; } }
-
-.date { font-size: 1.3rem; font-weight: bold; color: #0ff; text-shadow: 0 0 8px #0ff; }
-.blink { animation: blink 1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0.25; } }
-
-.buttons { display: flex; flex-direction: column; gap: 1rem; align-items: center; margin: 1.5rem 0; }
-.btn90 {
-  font-family: "Arial Black", Impact, sans-serif;
-  font-size: 1.2rem;
-  color: #000;
-  text-decoration: none;
-  padding: 0.8rem 1.6rem;
-  background: linear-gradient(#e0e0e0, #a0a0a0);
-  border: 4px outset #ddd;
+@keyframes leg-r {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(0deg); }
+  50% { transform: rotate(-18deg); }
+  75% { transform: rotate(0deg); }
 }
-.btn90:active { border-style: inset; }
-.btn90[hidden] { display: none; }
-
-footer { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; padding: 1rem 0 2rem; }
-.badge {
-  font: bold 0.7rem Verdana, sans-serif;
-  padding: 0.25rem 0.5rem;
-  background: #c0c0c0;
-  color: #000;
-  border: 2px outset #fff;
+@keyframes floor {
+  0%, 50% { transform: scaleX(1); }
+  25%, 75% { transform: scaleX(0.8); }
 }
-.construction { background: repeating-linear-gradient(45deg, #ff0 0 10px, #000 10px 20px); color: #f00; text-shadow: 1px 1px 0 #fff; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; }
+  .guy * { animation: none !important; }
 }

@@ -73,15 +73,21 @@ say "Step 3: GitHub secret"
 printf '%s' "$TOKEN" | GH_TOKEN=$(gh auth token --user JontiH) gh secret set CLOUDFLARE_API_TOKEN -R "$REPO"
 echo "Set CLOUDFLARE_API_TOKEN on $REPO."
 
-# 4. Party code
-say "Step 4: party code"
-echo "Guests need this to add pizzas or vote. Leave blank for no code."
-read -rp "Party code: " CODE
-if [ -n "$CODE" ]; then
-  body=$(python3 -c 'import json,sys;print(json.dumps({"deployment_configs":{"production":{"env_vars":{"PARTY_CODE":{"type":"secret_text","value":sys.argv[1]}}}}}))' "$CODE")
-  cf -X PATCH "$CF/accounts/$ACCOUNT_ID/pages/projects/$PROJECT" -d "$body" | field name >/dev/null
-  echo "Set. Share this link: https://$DOMAIN/?code=$CODE"
-fi
+# 4. Site secrets
+say "Step 4: admin email and Resend key"
+echo "Logging in with an admin email gives you the Admin tab. Separate several with commas."
+read -rp "Admin email(s), blank to keep the current one: " ADMINS
+echo "Resend API key with sending access for $DOMAIN (resend.com > API Keys)."
+read -rsp "Resend key (hidden), blank to keep the current one: " RESEND; echo
+vars=$(ADMINS="$ADMINS" RESEND="$RESEND" python3 -c '
+import json, os
+v = {"PARTY_CODE": None}
+if os.environ["ADMINS"]: v["ADMIN_EMAILS"] = {"type": "secret_text", "value": os.environ["ADMINS"].lower()}
+if os.environ["RESEND"]: v["RESEND_API_KEY"] = {"type": "secret_text", "value": os.environ["RESEND"]}
+print(json.dumps({"deployment_configs": {"production": {"env_vars": v}}}))
+')
+cf -X PATCH "$CF/accounts/$ACCOUNT_ID/pages/projects/$PROJECT" -d "$vars" | field name >/dev/null
+echo "Saved. They take effect on the next deploy."
 
 # 5. Custom domain
 say "Step 5: connect $DOMAIN"

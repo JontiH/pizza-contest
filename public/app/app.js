@@ -82,15 +82,21 @@ function renderPending() {
 // ---------- main ----------
 
 function renderMain() {
+  // Vote and Results stay visible but greyed out until the host opens them.
   const tabs = [
-    ["lineup", "Lineup"],
-    ["taste", "Taste"],
-    ...(["closed", "revealed"].includes(me.phase) ? [["results", "Results"]] : []),
-    ...(me.admin ? [["admin", "Admin"]] : []),
+    ["lineup", "Lineup", true],
+    ["vote", "Vote", me.phase !== "signup"],
+    ["results", "Results", ["closed", "revealed"].includes(me.phase)],
+    ...(me.admin ? [["admin", "Admin", true]] : []),
   ];
-  if (!tabs.some(([k]) => k === tab)) tab = "lineup";
+  if (!tabs.some(([k, , on]) => k === tab && on)) tab = "lineup";
   view.innerHTML = `
-    <nav class="tabs">${tabs.map(([k, l]) => `<button data-tab="${k}" class="${k === tab ? "active" : ""}">${l}</button>`).join("")}</nav>
+    <nav class="tabs">${tabs
+      .map(
+        ([k, l, on]) =>
+          `<button data-tab="${k}" class="${k === tab ? "active" : ""}" ${on ? "" : `disabled title="Opens at the party"`}>${l}</button>`
+      )
+      .join("")}</nav>
     <section id="pane"><p class="empty">Loading…</p></section>`;
   loadTab();
 }
@@ -101,7 +107,7 @@ async function loadTab() {
   location.hash = tab;
   try {
     if (tab === "lineup") await renderLineup();
-    if (tab === "taste") await renderTaste();
+    if (tab === "vote") await renderTaste();
     if (tab === "results") renderResultsLinks();
     if (tab === "admin") await renderAdmin();
   } catch (e) {
