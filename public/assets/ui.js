@@ -38,3 +38,11 @@ export const ordinal = (n) => {
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
+
+// Medal label for a contest placing: gold, silver, bronze fill; the
+// outline says which contest (v1 blue, v2 red).
+const PLACE = { 1: "1st", 2: "2nd", 3: "3rd" };
+export function medal(version, place) {
+  if (!PLACE[place]) return "";
+  return `<span class="badge place place-${place} ${version}">${version} · ${PLACE[place]}</span>`;
+}

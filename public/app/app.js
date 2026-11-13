@@ -1,5 +1,5 @@
 import { CATEGORY_LABELS, METHODS } from "/assets/tally.js";
-import { $, $$, ApiError, api, esc, fmt, toast } from "/assets/ui.js";
+import { $, $$, ApiError, api, esc, fmt, medal, toast } from "/assets/ui.js";
 import { askLocation, attachPlaceSearch, drawMap, locationFields } from "/app/places.js";
 
 const view = $("#view");
@@ -123,7 +123,7 @@ const mapsUrl = (p) => `https://www.google.com/maps/search/?api=1&query=${encode
 const mapLink = (p) => `<a class="map-link" href="${mapsUrl(p)}" target="_blank" rel="noopener noreferrer">Map</a>`;
 
 const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd" };
-const champBadge = (p) => (p.champion ? `<span class="badge champ">🏆 v1${p.placing ? ` · ${ORDINAL[p.placing]}` : ""}</span>` : "");
+const champBadge = (p) => (p.champion ? (p.placing ? medal("v1", p.placing) : `<span class="badge champ">🏆 v1</span>`) : "");
 const pizzaName = (p) => (p.kind ? esc(p.kind) : p.category === "platonic" ? "Cheese" : "??");
 let editingPick = false;
 let editingChamp = null;

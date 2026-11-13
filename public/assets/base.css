@@ -101,3 +101,9 @@ dialog {
 }
 dialog::backdrop { background: #0008; }
 dialog .close { float: right; }
+.badge.place { font-weight: 700; border: 2px solid transparent; color: #3a2a10; }
+.badge.place-1 { background: linear-gradient(#ffe27a, #f1b81f); }
+.badge.place-2 { background: linear-gradient(#f2f4f7, #b9c0c9); }
+.badge.place-3 { background: linear-gradient(#f0c193, #c47a3c); }
+.badge.place.v1 { border-color: #2a62d6; }
+.badge.place.v2 { border-color: var(--red); }

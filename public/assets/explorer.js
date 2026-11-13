@@ -1,5 +1,5 @@
 import { CATEGORY_LABELS, METHODS, agreementLeague, analyse, person } from "./tally.js";
-import { $, esc, fmt, ordinal } from "./ui.js";
+import { $, esc, fmt, medal, ordinal } from "./ui.js";
 
 const methodLabel = (k) => METHODS.find((m) => m.key === k)?.label ?? k;
 
@@ -19,6 +19,7 @@ export function mountExplorer(root, data, { official = "" } = {}) {
   const pizza = new Map(data.pizzas.map((p) => [p.id, p]));
   const voter = new Map(data.voters.map((v) => [v.id, v]));
   const pname = (id) => esc(pizza.get(id)?.restaurant ?? "?");
+  const v1 = (id) => (pizza.get(id)?.champion ? medal("v1", pizza.get(id).placing) : "");
   const headline = official || "average";
   let cat = cats[0];
 
@@ -31,6 +32,9 @@ export function mountExplorer(root, data, { official = "" } = {}) {
   function render() {
     const a = analyse(data, cat);
     const ranked = a.rankings[headline].filter((id) => a.stats.get(id).n > 0);
+    // This contest's podium under the headline method, shown as v2 medals.
+    const v2 = (id) => medal("v2", ranked.indexOf(id) + 1);
+    const badges = (id) => `${v2(id)} ${v1(id)}`;
     const voters = [...a.ballots.keys()].sort((x, y) => voter.get(x).name.localeCompare(voter.get(y).name));
     const cols = ranked;
     const slope = a.slope;
@@ -46,6 +50,7 @@ export function mountExplorer(root, data, { official = "" } = {}) {
               <span class="medal">${["🥇", "🥈", "🥉"][i]}</span>
               <strong>${pname(id)}</strong>
               <span class="hint">${esc(pizza.get(id).kind)}</span>
+              <span>${badges(id)}</span>
               <span class="big">${fmt(a.stats.get(id).mean, 2)}</span>
               <span class="hint">average</span>
             </button>`
@@ -81,7 +86,7 @@ export function mountExplorer(root, data, { official = "" } = {}) {
         ${ranked
           .map(
             (id) => `<tr>
-              <td><button class="link" data-pizza="${id}">${pname(id)}</button></td>
+              <td><button class="link" data-pizza="${id}">${pname(id)}</button> ${badges(id)}</td>
               ${METHODS.map((m) => {
                 const r = a.rankings[m.key].indexOf(id);
                 const shown = m.key === "stv" ? (r >= 0 ? ordinal(r + 1) : "–") : ordinal(r + 1);
@@ -151,7 +156,8 @@ export function mountExplorer(root, data, { official = "" } = {}) {
     dialog.innerHTML = `
       <button class="close secondary small" data-close>Close</button>
       <h2 style="margin-top:0">${p.box ? `#${p.box} ` : ""}${esc(p.restaurant)}</h2>
-      <p class="hint">${esc(p.kind)}${p.kind ? " · " : ""}${CATEGORY_LABELS[p.category]}${p.champion ? " · 🏆 returning champion" : ""}${p.bringer ? ` · brought by ${esc(p.bringer)}` : ""}</p>
+      <p>${medal("v2", a.rankings[official || "average"].filter((x) => a.stats.get(x).n > 0).indexOf(id) + 1)} ${v1(id)}</p>
+      <p class="hint">${esc(p.kind)}${p.kind ? " · " : ""}${CATEGORY_LABELS[p.category]}${p.bringer ? ` · brought by ${esc(p.bringer)}` : ""}</p>
       <div class="statline">
         <span><strong>${fmt(st.mean, 2)}</strong> average</span>
         <span><strong>${fmt(st.median, 2)}</strong> median</span>
