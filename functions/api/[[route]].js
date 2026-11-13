@@ -155,17 +155,19 @@ function parsePlacing(value) {
   return n;
 }
 
-// Guests must say which pizza; champion slots and admin entries may leave
-// it blank until someone knows.
-function pizzaFields(body, { partial = false, requireKind = false } = {}) {
+// Guests must give a pizza type in Non-platonic; Platonic is cheese by
+// definition. Champion slots and admin entries may leave it blank.
+function pizzaFields(body, { partial = false, requireKind = false, category = null } = {}) {
   const out = {};
   if (!partial || body.restaurant !== undefined) out.restaurant = text(body.restaurant, "restaurant", 60, true);
-  if (!partial || body.kind !== undefined) out.kind = text(body.kind, "pizza", 60, requireKind);
+  if (!partial || body.kind !== undefined) out.kind = text(body.kind, "pizza type", 60);
   if (!partial || body.notes !== undefined) out.notes = text(body.notes, "notes", 140);
   if (!partial || body.category !== undefined) {
     if (!CATEGORIES.includes(body.category)) throw bad("pick a category");
     out.category = body.category;
   }
+  const cat = out.category ?? category;
+  if (requireKind && cat === "non_platonic" && (out.kind ?? body.currentKind) === "") throw bad("pizza type is required for non-platonic");
   return out;
 }
 
@@ -214,7 +216,7 @@ async function editPizza(ctx, id, body) {
   // Champion slots are fixed by the admin; volunteers only say what kind.
   let f = p.champion
     ? pizzaFields({ kind: body.kind, notes: body.notes }, { partial: true })
-    : pizzaFields(body, { partial: true, requireKind: true });
+    : pizzaFields({ ...body, currentKind: body.kind ?? p.kind }, { partial: true, requireKind: true, category: p.category });
   if (!p.champion && f.restaurant !== undefined && f.restaurant !== p.restaurant) f = await withLocation(ctx.env, f, body);
   await updatePizza(ctx.env, id, f);
   return { ok: true };

@@ -122,7 +122,7 @@ const mapLink = (p) => `<a class="map-link" href="${mapsUrl(p)}" target="_blank"
 
 const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd" };
 const champBadge = (p) => (p.champion ? `<span class="badge champ">🏆 v1${p.placing ? ` · ${ORDINAL[p.placing]}` : ""}</span>` : "");
-const pizzaName = (p) => (p.kind ? esc(p.kind) : `<span class="hint">not decided</span>`);
+const pizzaName = (p) => (p.kind ? esc(p.kind) : p.category === "platonic" ? "Cheese" : "??");
 let editingPick = false;
 let editingChamp = null;
 
@@ -156,10 +156,10 @@ function pickForm(own, editing) {
       <input name="restaurant" required maxlength="60" placeholder="Start typing to search" value="${esc(own?.restaurant)}">
     </label>
     <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
-    <label class="field">Pizza
-      <input name="kind" required maxlength="60" placeholder="e.g. Margherita, Pepperoni, Vodka" value="${esc(own?.kind)}">
+    <label class="field">Pizza type <span class="hint" data-kind-hint>(required for non-platonic)</span>
+      <input name="kind" maxlength="60" placeholder="e.g. Pepperoni, Vodka. Leave blank for plain cheese" value="${esc(own?.kind)}" ${own?.category === "non_platonic" ? "required" : ""}>
     </label>
-    <label class="field">Notes <span class="hint">(optional)</span>
+    <label class="field">Extra notes <span class="hint">(optional)</span>
       <input name="notes" maxlength="140" placeholder="e.g. extra crispy, picking it up at 6" value="${esc(own?.notes)}">
     </label>
     <fieldset>
@@ -192,8 +192,8 @@ function myPicks(mine) {
         ${
           editingChamp === p.id
             ? `<li><form class="stack" data-form="champ" data-id="${p.id}">
-                <label class="field">Pizza<input name="kind" maxlength="60" required placeholder="e.g. Margherita" value="${esc(p.kind)}"></label>
-                <label class="field">Notes <span class="hint">(optional)</span><input name="notes" maxlength="140" value="${esc(p.notes)}"></label>
+                <label class="field">Pizza type<input name="kind" maxlength="60" placeholder="${p.category === "platonic" ? "Cheese" : "e.g. Pepperoni"}" value="${esc(p.kind)}"></label>
+                <label class="field">Extra notes <span class="hint">(optional)</span><input name="notes" maxlength="140" value="${esc(p.notes)}"></label>
                 <div class="row"><button>Save</button><button type="button" class="secondary" data-act="cancel-edit">Cancel</button></div>
               </form></li>`
             : ""
@@ -232,7 +232,7 @@ function lineupTable(board, cat, open) {
   return `
     <h3 class="cat">${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "anything goes"} · ${rows.length}</span></h3>
     <table class="lineup">
-      <thead><tr><th>Restaurant</th><th>Pizza</th><th>Brought by</th></tr></thead>
+      <thead><tr><th>Restaurant</th><th>Pizza type</th><th>Brought by</th></tr></thead>
       <tbody>${body}</tbody>
     </table>`;
 }
@@ -443,8 +443,8 @@ async function renderAdmin() {
       <p class="hint">Add as many as you like, for anyone or for nobody yet. Tick "Returning champion" for a champion slot.</p>
       <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)">
       <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
-      <input name="kind" maxlength="60" placeholder="Pizza (e.g. Margherita), if known">
-      <input name="notes" maxlength="140" placeholder="Notes (optional)">
+      <input name="kind" maxlength="60" placeholder="Pizza type, if known (blank = cheese)">
+      <input name="notes" maxlength="140" placeholder="Extra notes (optional)">
       <fieldset>
         ${Object.entries(CATEGORY_LABELS).map(([k, l]) => `<label><input type="radio" name="category" value="${k}" required> ${l}</label>`).join("")}
         <label><input type="checkbox" name="champion"> Returning champion</label>
@@ -575,6 +575,11 @@ view.addEventListener("click", async (e) => {
   } catch (err) {
     fail(err);
   }
+});
+
+view.addEventListener("change", (e) => {
+  if (e.target.name !== "category" || !e.target.form || e.target.form.dataset.form !== "pizza") return;
+  e.target.form.querySelector("input[name=kind]").required = e.target.value === "non_platonic";
 });
 
 view.addEventListener("input", (e) => {
