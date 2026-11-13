@@ -54,6 +54,7 @@ status=$(cf "$CF/accounts/$ACCOUNT_ID/tokens/verify" | field status 2>/dev/null 
 [ "$status" = active ] || die "Token is not active (status: $status)."
 umask 077
 printf 'CLOUDFLARE_API_TOKEN=%s\nCLOUDFLARE_ACCOUNT_ID=%s\n' "$TOKEN" "$ACCOUNT_ID" > .env
+chmod 600 .env
 echo "Token works. Saved to .env (gitignored)."
 
 # 2. D1 database
