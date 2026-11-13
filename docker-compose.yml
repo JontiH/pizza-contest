@@ -1,0 +1,18 @@
+services:
+  dev:
+    image: node:22-slim
+    working_dir: /app
+    volumes:
+      - .:/app
+      - state:/state
+      - npm-cache:/root/.npm
+    ports:
+      - "8788:8788"
+    command: >
+      sh -c "apt-get update -qq >/dev/null && apt-get install -y -qq ca-certificates >/dev/null &&
+             npx -y wrangler@4.161.0 d1 migrations apply DB --local --persist-to /state &&
+             npx -y wrangler@4.161.0 pages dev --ip 0.0.0.0 --port 8788 --persist-to /state"
+
+volumes:
+  state:
+  npm-cache:

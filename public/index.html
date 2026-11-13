@@ -3,54 +3,106 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pizza Contest</title>
-  <link rel="stylesheet" href="/style.css">
-  <script src="/app.js" defer></script>
+  <title>PIZZA CONTEST 2026</title>
+  <link rel="stylesheet" href="/assets/home.css">
+  <script type="module" src="/assets/home.js"></script>
 </head>
 <body>
-  <header>
-    <h1>🍕 Pizza Contest</h1>
-    <div id="me">
-      <label for="name">You are</label>
-      <input id="name" maxlength="40" placeholder="your name" autocomplete="given-name">
-    </div>
-  </header>
+  <div class="stars"></div>
+  <marquee scrollamount="8">★ WELCOME TO THE OFFICIAL PIZZA CONTEST HOMEPAGE ★ SATURDAY NOVEMBER 28 2026 ★ BRING A PIZZA ★ RANK THE PIZZAS ★ TRUST THE NEEDLE ★</marquee>
 
-  <nav>
-    <button data-tab="lineup" class="active">Lineup</button>
-    <button data-tab="vote">Vote</button>
-    <button data-tab="results">Results</button>
+  <h1 class="wordart" aria-label="Pizza Contest">PIZZA<br>CONTEST</h1>
+
+  <div class="stage" aria-hidden="true">
+    <div class="bounce">
+      <div class="spin">
+        <svg class="slab" viewBox="0 0 300 400"><path d="M30 75 Q150 30 270 75 L150 335 Z"/></svg>
+        <svg class="slab" viewBox="0 0 300 400"><path d="M30 75 Q150 30 270 75 L150 335 Z"/></svg>
+        <svg class="slab" viewBox="0 0 300 400"><path d="M30 75 Q150 30 270 75 L150 335 Z"/></svg>
+        <svg class="slab" viewBox="0 0 300 400"><path d="M30 75 Q150 30 270 75 L150 335 Z"/></svg>
+        <svg class="slab" viewBox="0 0 300 400"><path d="M30 75 Q150 30 270 75 L150 335 Z"/></svg>
+        <svg class="slab" viewBox="0 0 300 400"><path d="M30 75 Q150 30 270 75 L150 335 Z"/></svg>
+        <svg class="slice" viewBox="0 0 300 400">
+          <defs>
+            <radialGradient id="cheese" cx="0.4" cy="0.3" r="0.8">
+              <stop offset="0" stop-color="#fff6a8"/>
+              <stop offset="0.45" stop-color="#ffc93c"/>
+              <stop offset="1" stop-color="#e0841b"/>
+            </radialGradient>
+            <linearGradient id="crust" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#f3c27a"/>
+              <stop offset="0.6" stop-color="#c27a32"/>
+              <stop offset="1" stop-color="#8a4a17"/>
+            </linearGradient>
+            <radialGradient id="pep" cx="0.35" cy="0.3" r="0.75">
+              <stop offset="0" stop-color="#ff8a7a"/>
+              <stop offset="0.5" stop-color="#d1241b"/>
+              <stop offset="1" stop-color="#7c0d08"/>
+            </radialGradient>
+            <radialGradient id="shoe" cx="0.35" cy="0.3" r="0.8">
+              <stop offset="0" stop-color="#ff7aa8"/>
+              <stop offset="1" stop-color="#c3002f"/>
+            </radialGradient>
+          </defs>
+
+          <g class="leg leg-l">
+            <path d="M132 300 L112 372" stroke="#5a2a0c" stroke-width="8" stroke-linecap="round"/>
+            <ellipse cx="102" cy="378" rx="22" ry="11" fill="url(#shoe)"/>
+            <ellipse cx="96" cy="374" rx="7" ry="3" fill="#fff" opacity="0.7"/>
+          </g>
+          <g class="leg leg-r">
+            <path d="M168 300 L188 372" stroke="#5a2a0c" stroke-width="8" stroke-linecap="round"/>
+            <ellipse cx="198" cy="378" rx="22" ry="11" fill="url(#shoe)"/>
+            <ellipse cx="192" cy="374" rx="7" ry="3" fill="#fff" opacity="0.7"/>
+          </g>
+
+          <g class="arm arm-l">
+            <path d="M78 165 Q45 140 30 100" stroke="#5a2a0c" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <circle cx="28" cy="94" r="16" fill="#fff" stroke="#999" stroke-width="2"/>
+            <circle cx="23" cy="89" r="5" fill="#fff" opacity="0.9"/>
+          </g>
+          <g class="arm arm-r">
+            <path d="M222 165 Q255 185 268 222" stroke="#5a2a0c" stroke-width="8" fill="none" stroke-linecap="round"/>
+            <circle cx="270" cy="228" r="16" fill="#fff" stroke="#999" stroke-width="2"/>
+          </g>
+
+          <path d="M30 75 Q150 30 270 75 L150 335 Z" fill="url(#cheese)" stroke="#c46a12" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M150 335 q-8 18 0 34 q8 -16 0 -34" fill="#ffc93c" stroke="#c46a12" stroke-width="2"/>
+          <path d="M30 75 Q150 30 270 75" fill="none" stroke="url(#crust)" stroke-width="30" stroke-linecap="round"/>
+          <path d="M55 62 Q150 32 245 62" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="0.45"/>
+
+          <circle cx="88" cy="112" r="20" fill="url(#pep)"/>
+          <circle cx="214" cy="114" r="18" fill="url(#pep)"/>
+          <circle cx="118" cy="238" r="15" fill="url(#pep)"/>
+          <circle cx="182" cy="232" r="14" fill="url(#pep)"/>
+          <circle cx="150" cy="290" r="11" fill="url(#pep)"/>
+
+          <g class="eyes">
+            <ellipse cx="128" cy="150" rx="17" ry="22" fill="#fff" stroke="#333" stroke-width="2"/>
+            <ellipse cx="172" cy="150" rx="17" ry="22" fill="#fff" stroke="#333" stroke-width="2"/>
+            <circle class="pupil" cx="132" cy="156" r="8" fill="#111"/>
+            <circle class="pupil" cx="176" cy="156" r="8" fill="#111"/>
+            <circle cx="135" cy="152" r="3" fill="#fff"/>
+            <circle cx="179" cy="152" r="3" fill="#fff"/>
+          </g>
+          <path d="M122 190 Q150 222 178 190 Q150 206 122 190 Z" fill="#6b0f0a" stroke="#333" stroke-width="2"/>
+          <ellipse cx="96" cy="70" rx="40" ry="10" fill="#fff" opacity="0.25" transform="rotate(-12 96 70)"/>
+        </svg>
+      </div>
+    </div>
+    <div class="shadow"></div>
+  </div>
+
+  <p class="date blink">SATURDAY · NOVEMBER 28 · 2026</p>
+
+  <nav class="buttons">
+    <a class="btn90" href="/app/">ENTER THE CONTEST</a>
+    <a class="btn90" id="results-link" href="/results/" hidden>SEE THE RESULTS</a>
   </nav>
 
-  <main>
-    <section id="lineup">
-      <form id="add">
-        <h2>Bringing a pizza?</h2>
-        <input name="restaurant" required maxlength="80" placeholder="Restaurant *">
-        <input name="pizza" maxlength="80" placeholder="Which pizza (e.g. Margherita)">
-        <input name="style" maxlength="40" placeholder="Style (Neapolitan, NY, Detroit…)" list="styles">
-        <datalist id="styles">
-          <option>Neapolitan</option><option>New York</option><option>Detroit</option>
-          <option>Roman</option><option>Sicilian</option><option>Chicago deep dish</option>
-          <option>Grandma</option><option>Bar pie</option>
-        </datalist>
-        <input name="notes" maxlength="280" placeholder="Notes (price, size, why this one)">
-        <button type="submit">Add to lineup</button>
-      </form>
-      <ol id="lineup-list" class="cards"></ol>
-    </section>
-
-    <section id="vote" hidden>
-      <p class="hint">Score each pizza from 1 to 10. Tap another number to change your score, or the same one to clear it.</p>
-      <ol id="vote-list" class="cards"></ol>
-    </section>
-
-    <section id="results" hidden>
-      <ol id="board"></ol>
-      <p id="voters" class="hint"></p>
-    </section>
-  </main>
-
-  <p id="toast" role="status"></p>
+  <footer>
+    <span class="badge">BEST VIEWED IN NETSCAPE NAVIGATOR 3.0</span>
+    <span class="badge construction">UNDER CONSTRUCTION</span>
+  </footer>
 </body>
 </html>

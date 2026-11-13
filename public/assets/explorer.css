@@ -1,0 +1,39 @@
+.center { text-align: center; }
+.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 0.5rem; align-items: end; margin: 1rem 0 0.5rem; }
+.podium .step {
+  display: grid;
+  gap: 0.15rem;
+  justify-items: center;
+  background: var(--card);
+  color: var(--ink);
+  padding: 0.8rem 0.5rem;
+  border-radius: 0.75rem 0.75rem 0 0;
+}
+.podium .step-1 { order: 2; padding-top: 1.6rem; background: #ffe9a8; }
+.podium .step-2 { order: 1; }
+.podium .step-3 { order: 3; }
+.podium .medal { font-size: 2rem; }
+.podium .big { font-size: 1.4rem; font-weight: 800; }
+.fullness { margin: 0.8rem 0; }
+table.methods, table.heat, table.h2h, table.rounds { font-size: 0.88rem; background: var(--card); border-radius: 0.5rem; }
+table.methods td, table.methods th { text-align: center; }
+table.methods td:first-child { text-align: left; }
+table.methods .official { background: #fff1c9; }
+table.methods .first { font-weight: 800; }
+.heat-wrap { max-height: 70vh; }
+table.heat th:first-child { position: sticky; left: 0; background: var(--card); z-index: 1; }
+table.heat th { font-weight: 600; white-space: nowrap; }
+table.heat td { text-align: center; min-width: 3rem; }
+table.heat td.none, table.h2h td.none { color: #ccc; }
+table.heat tr.avg td, table.heat tr.avg th { font-weight: 800; border-top: 2px solid var(--line); }
+table.h2h td { text-align: center; }
+table.h2h td.win { background: #d9f2df; }
+table.h2h td.loss { background: #f7dcd9; }
+.statline { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0.5rem 0; }
+.dots { width: 100%; height: auto; }
+.pills { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; font-size: 0.88rem; }
+.pills li { background: var(--card); padding: 0.25rem 0.55rem; border-radius: 1rem; }
+table.list { width: 100%; }
+table.list tr + tr td { border-top: 1px solid var(--line); }
+dl dt { font-weight: 700; margin-top: 0.5rem; }
+dl dd { margin: 0; }

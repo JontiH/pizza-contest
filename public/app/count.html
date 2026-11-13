@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Election night · Pizza Contest</title>
+  <link rel="stylesheet" href="/assets/base.css">
+  <link rel="stylesheet" href="/app/count.css">
+  <script type="module" src="/app/count.js"></script>
+</head>
+<body>
+  <div class="wrap wide">
+    <header class="top">
+      <h1>🍕 Election night</h1>
+      <div class="row">
+        <label for="method" class="hint">Counting by</label>
+        <select id="method"></select>
+      </div>
+    </header>
+    <p id="status" class="counter">Loading…</p>
+    <div id="races" class="races"></div>
+    <p id="ticker" class="ticker"></p>
+    <div class="row controls">
+      <button id="step">Count next ballot</button>
+      <button id="auto" class="secondary">Auto count</button>
+      <button id="all" class="secondary">Count the rest</button>
+      <button id="restart" class="secondary">Start over</button>
+      <a class="button secondary" href="/results/">Full results</a>
+    </div>
+  </div>
+</body>
+</html>
