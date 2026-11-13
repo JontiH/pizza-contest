@@ -48,7 +48,11 @@
 .guy .pupil { fill: var(--ink); stroke: none; }
 .guy .cheek { fill: #ff8a7a; stroke: none; opacity: 0.6; }
 .guy .smile { fill: none; stroke-width: 3.5; }
-.guy .o { fill: #6b0f0a; stroke-width: 3; display: none; }
-.guy #mouth.open .smile { display: none; }
-.guy #mouth.open .o { display: inline; }
+.guy .o, .guy .grin { fill: #6b0f0a; stroke-width: 3; }
+.guy #mouth > * { display: none; }
+.guy #mouth[data-shape="smile"] .smile,
+.guy #mouth[data-shape="grin"] .grin,
+.guy #mouth[data-shape="o"] .o { display: inline; }
+.guy .finger { fill: none; stroke-width: 7; display: none; }
+.guy .hand.point .finger { display: inline; }
 .guy .floor { fill: #ead9c6; stroke: none; }
