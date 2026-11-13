@@ -300,7 +300,8 @@ async function renderInfo() {
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`;
   $("#pane").innerHTML = `
     <section class="card info-where">
-      ${i.when ? `<p class="when-line">${esc(i.when)}</p>` : ""}
+      ${i.when ? `<h3>What day is this?</h3><p class="when-line">${esc(i.when)}</p>` : ""}
+      <h3>Where does Jonti live?</h3>
       ${
         i.address
           ? `<p class="addr"><strong>${esc(i.address)}</strong>${i.unit ? `, ${esc(i.unit)}` : ""}</p>

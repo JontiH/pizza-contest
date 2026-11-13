@@ -50,7 +50,9 @@ table.lineup td { vertical-align: top; border-top: 1px solid var(--line); }
 table.lineup tr.is-mine td { background: #f1fbf3; }
 table.lineup td:nth-child(2) { min-width: 6rem; }
 table.lineup .map-link { margin-left: 0; }
-.info-where .when-line { font-size: 1.15rem; font-weight: 700; margin: 0 0 0.5rem; }
+.info-where h3 { margin: 0 0 0.3rem; }
+.info-where h3 + p { margin-top: 0; }
+.info-where .when-line { font-size: 1.1rem; margin: 0 0 1rem; }
 .info-where .addr { font-size: 1.1rem; margin: 0; }
 .info-notes { margin: 0.4rem 0 0.8rem; padding-left: 1.2rem; }
 .info-where .pizza-map { height: 220px; margin: 0 0 0.8rem; }
