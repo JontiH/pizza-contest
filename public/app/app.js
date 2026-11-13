@@ -50,7 +50,7 @@ function renderLogin(step = "email") {
     view.innerHTML = `
       <form class="card login stack" data-form="login-code">
         <h2>Check your email</h2>
-        <p class="hint">We sent a code to <strong>${esc(loginEmail)}</strong>. It expires in 10 minutes.</p>
+        <p class="hint">We sent a code to <strong>${esc(loginEmail)}</strong>. It expires in 10 minutes. Not there after a minute? Check your spam folder.</p>
         <input name="code" class="code-input" required inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
         <button>Log in</button>
         <button type="button" class="link" data-act="login-back">Use a different email</button>
