@@ -123,8 +123,12 @@ export async function drawMap(el, pizzas) {
   el.hidden = false;
   const L = await loadLeaflet();
   const map = L.map(el, { scrollWheelZoom: false });
+  // OpenStreetMap blocks tile requests that don't say which site they're
+  // from, and the site-wide policy is no-referrer. This sends only the
+  // origin (https://pizzacontest.ca/), and only for tiles.
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 18,
+    referrerPolicy: "strict-origin",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(map);
   const bounds = [];
