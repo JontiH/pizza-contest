@@ -36,3 +36,6 @@ fieldset { border: 0; padding: 0; margin: 0; display: flex; gap: 1rem; flex-wrap
 .pin.champ { background: #ffc93c; }
 .score-picker textarea { width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #ddcbb8; border-radius: 0.5rem; font: inherit; resize: vertical; }
 .score-picker .hint { margin: 0; }
+.which { display: grid; gap: 0.4rem; background: var(--cream); border: 1px solid var(--line); }
+.which p { margin: 0; }
+.which .secondary { text-align: left; }

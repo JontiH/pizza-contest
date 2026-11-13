@@ -76,7 +76,11 @@ function draw() {
             ? `<strong>${name}</strong> wins`
             : `Chance <strong>${name}</strong> wins: <strong>${Math.round(p * 100)}%</strong>`
       );
-      if (done) needles[c].stop();
+      if (done) {
+        needles[c].stop();
+        const worst = analyse(data, c).worst;
+        if (worst !== null) needles[c].caption.innerHTML += `<br><span class="hint">🗑️ Worst: ${esc(pizzas.get(worst).restaurant)}</span>`;
+      }
     }
     // Runoff, STV and head-to-head have no single number per pizza, so
     // their boards show the average next to the method's order.

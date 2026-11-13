@@ -38,3 +38,5 @@ table.list tr + tr:not(.note-row) td { border-top: 1px solid var(--line); }
 table.list .note-row td { color: var(--muted); font-style: italic; font-size: 0.9rem; padding-top: 0; }
 dl dt { font-weight: 700; margin-top: 0.5rem; }
 dl dd { margin: 0; }
+button.worst { display: flex; gap: 0.8rem; align-items: center; width: 100%; text-align: left; color: var(--ink); background: #ececec; margin-top: 0.8rem; }
+button.worst .medal { font-size: 1.8rem; }

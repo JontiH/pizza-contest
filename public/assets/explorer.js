@@ -54,6 +54,18 @@ export function mountExplorer(root, data, { official = "" } = {}) {
       </section>
       <p class="hint center">${official ? `Official method: <strong>${methodLabel(official)}</strong>.` : "No official method picked yet, so this shows the average."} Tap any pizza or person for details.</p>
 
+      ${
+        a.worst !== null
+          ? `<button class="card worst" data-pizza="${a.worst}">
+              <span class="medal">🗑️</span>
+              <span><strong>Worst pizza: ${pname(a.worst)}</strong><br>
+              <span class="hint">Lowest score for ${fmt(a.values.worsts.get(a.worst), a.values.worsts.get(a.worst) % 1 ? 1 : 0)} ${
+                a.values.worsts.get(a.worst) === 1 ? "person" : "people"
+              } · averaged ${fmt(a.stats.get(a.worst).mean, 2)}</span></span>
+            </button>`
+          : ""
+      }
+
       <div class="card fullness">
         <strong>The fullness effect:</strong>
         ${
@@ -65,7 +77,7 @@ export function mountExplorer(root, data, { official = "" } = {}) {
 
       <h2>Every method</h2>
       <div class="scroll"><table class="methods">
-        <tr><th>Pizza</th>${METHODS.map((m) => `<th title="${esc(m.blurb)}" class="${m.key === official ? "official" : ""}">${m.label}</th>`).join("")}</tr>
+        <tr><th>Pizza</th>${METHODS.map((m) => `<th title="${esc(m.blurb)}" class="${m.key === official ? "official" : ""}">${m.label}</th>`).join("")}<th title="How many people scored it their lowest">Most worsts</th></tr>
         ${ranked
           .map(
             (id) => `<tr>
@@ -75,6 +87,7 @@ export function mountExplorer(root, data, { official = "" } = {}) {
                 const shown = m.key === "stv" ? (r >= 0 ? ordinal(r + 1) : "–") : ordinal(r + 1);
                 return `<td class="${m.key === official ? "official" : ""} ${r === 0 ? "first" : ""}">${shown}</td>`;
               }).join("")}
+              <td class="${id === a.worst ? "first" : ""}">${fmt(a.values.worsts.get(id), a.values.worsts.get(id) % 1 ? 1 : 0)}${id === a.worst ? " 🗑️" : ""}</td>
             </tr>`
           )
           .join("")}
@@ -147,7 +160,8 @@ export function mountExplorer(root, data, { official = "" } = {}) {
       </div>
       ${dotPlot(rows.map((o) => ({ s: o.s, label: voter.get(o.v).name })))}
       <p>${st.sd >= 2 ? "People were split on this one." : st.sd <= 0.8 && st.n > 2 ? "Remarkable agreement on this one." : ""}
-        Beat ${h2hWins} of ${others.length} other pizzas head to head.</p>
+        Beat ${h2hWins} of ${others.length} other pizzas head to head.
+        ${a.values.worsts.get(id) ? `Lowest score for ${fmt(a.values.worsts.get(id), a.values.worsts.get(id) % 1 ? 1 : 0)} ${a.values.worsts.get(id) === 1 ? "person" : "people"}${id === a.worst ? " 🗑️" : ""}.` : ""}</p>
       <h3>Rank by method</h3>
       <ul class="pills">${METHODS.map((m) => {
         const r = a.rankings[m.key].indexOf(id);

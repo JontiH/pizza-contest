@@ -56,6 +56,34 @@ export function attachPlaceSearch(form) {
   input.addEventListener("blur", () => setTimeout(close, 200));
 }
 
+// When someone saves without picking a suggestion and the restaurant has
+// more than one location, ask which one. Resolves to the chosen place,
+// or null to let the server pick its best match.
+export async function askLocation(form, name) {
+  let results = [];
+  try {
+    results = (await api("GET", `/api/places?q=${encodeURIComponent(name)}`)).results.filter((r) => r.food);
+  } catch {
+    return null;
+  }
+  if (results.length < 2) return results[0] || null;
+  const panel = document.createElement("div");
+  panel.className = "which card";
+  panel.innerHTML = `
+    <p><strong>Which ${esc(results[0].name)}?</strong></p>
+    ${results.map((r, i) => `<button type="button" class="secondary" data-i="${i}">${esc(r.address || r.name)}</button>`).join("")}
+    <button type="button" class="link" data-i="any">Not sure, pick the main one</button>`;
+  form.querySelector("button:not([type])").before(panel);
+  return new Promise((resolve) => {
+    panel.addEventListener("click", (e) => {
+      const b = e.target.closest("button[data-i]");
+      if (!b) return;
+      panel.remove();
+      resolve(b.dataset.i === "any" ? results[0] : results[Number(b.dataset.i)]);
+    });
+  });
+}
+
 // Empty hidden fields mean "not picked"; drop them so the server looks the
 // place up instead of rejecting blank coordinates.
 export function locationFields(data) {

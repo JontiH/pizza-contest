@@ -76,6 +76,25 @@ function firsts(ids, ballots) {
   return count;
 }
 
+// Each person's lowest-scored pizza gets a "worst" vote, split on ties.
+// People who tasted only one pizza in the category don't cast one.
+function worsts(ids, ballots) {
+  const count = new Map(ids.map((id) => [id, 0]));
+  for (const b of ballots.values()) {
+    if (b.size < 2) continue;
+    const tiers = tiersOf(b);
+    const bottom = tiers[tiers.length - 1];
+    for (const p of bottom) count.set(p, count.get(p) + 1 / bottom.length);
+  }
+  return count;
+}
+
+function worstPizza(ids, count, st) {
+  const voted = ids.filter((id) => st.get(id).n > 0 && count.get(id) > 0);
+  if (!voted.length) return null;
+  return voted.sort((a, b) => count.get(b) - count.get(a) || st.get(a).mean - st.get(b).mean)[0];
+}
+
 function irvRun(tiered, candidates, st) {
   const cont = new Set(candidates);
   const rounds = [];
@@ -292,6 +311,7 @@ export function analyse(data, category) {
   const stvResult = stv(ids, ballots, st);
   const sch = schulze(ids, ballots, st);
   const bor = borda(ids, ballots, st);
+  const w = worsts(ids, ballots);
   return {
     ids,
     ballots,
@@ -310,7 +330,9 @@ export function analyse(data, category) {
       firsts: f,
       borda: bor.value,
       adjusted: fm.value,
+      worsts: w,
     },
+    worst: worstPizza(ids, w, st),
     irvRounds: irvResult.rounds,
     stv: stvResult,
     pairwise: sch.pairwise,

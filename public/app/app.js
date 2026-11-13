@@ -1,6 +1,6 @@
 import { CATEGORY_LABELS, METHODS } from "/assets/tally.js";
 import { $, $$, ApiError, api, esc, fmt, toast } from "/assets/ui.js";
-import { attachPlaceSearch, drawMap, locationFields } from "/app/places.js";
+import { askLocation, attachPlaceSearch, drawMap, locationFields } from "/app/places.js";
 
 const view = $("#view");
 const foot = $("#foot");
@@ -186,7 +186,7 @@ async function renderLineup() {
   $("#pane").innerHTML = `
     ${
       open
-        ? `<form class="card stack" data-form="pizza" data-id="${own?.id || ""}">
+        ? `<form class="card stack" data-form="pizza" data-id="${own?.id || ""}" data-restaurant="${esc(own?.restaurant)}">
             <h2 style="margin-top:0">${own ? "Your pizza" : "What are you bringing?"}</h2>
             <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)" value="${esc(own?.restaurant)}">
             <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
@@ -392,7 +392,8 @@ async function renderAdmin() {
     </table></div>
 
     <form class="card stack" data-form="admin-pizza" style="margin-top:1rem">
-      <h3>Add a pizza or champion slot</h3>
+      <h3>Add a pizza</h3>
+      <p class="hint">Add as many as you like, for anyone or for nobody yet. Tick "Returning champion" for a champion slot.</p>
       <input name="restaurant" required maxlength="60" placeholder="Restaurant (start typing to search)">
       <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
       <input name="kind" maxlength="140" placeholder="Type of pizza or notes (e.g. Margherita · 1st last time)">
@@ -413,8 +414,15 @@ async function renderAdmin() {
 view.addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target;
-  const data = Object.fromEntries(new FormData(form));
+  let data = Object.fromEntries(new FormData(form));
   const button = $("button:not([type])", form) || $("button", form);
+  const picksPlace = ["pizza", "admin-pizza"].includes(form.dataset.form);
+  const renamed = form.dataset.form === "pizza" && form.dataset.id ? data.restaurant !== form.dataset.restaurant : true;
+  if (picksPlace && renamed && !data.lat && data.restaurant.trim()) {
+    if (button) button.disabled = true;
+    const place = await askLocation(form, data.restaurant.trim());
+    if (place) data = { ...data, restaurant: place.name, lat: place.lat, lon: place.lon, address: place.address };
+  }
   if (button) button.disabled = true;
   try {
     switch (form.dataset.form) {
