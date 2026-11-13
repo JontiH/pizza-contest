@@ -1,70 +1,83 @@
 # AGENTS.md
 
-Pizza ranking site for a party, at pizzacontest.ca. Guests sign up with
-the pizza they're bringing and score each pizza from 1 to 10.
+Pizza party site at pizzacontest.ca (Saturday November 28, 2026). Guests
+log in with an emailed code, the host approves them, they sign up the pizza
+they're bringing, and at the party the site hands each guest one slice at a
+time to score from 1 to 10. Results are counted several ways and published.
 
 ## Layout
 
-- `public/`: static page (`index.html`, `app.js`, `style.css`). No build step.
-- `functions/api/[[route]].js`: Pages Function serving `/api/*`.
+- `public/index.html`: home page with the dancing slice (`assets/dancer.js`;
+  routines are pose functions, `CARLTON` and `MACARENA`).
+- `public/app/`: the guest app (Lineup, Vote, Results, Admin tabs) and
+  `count.html`, the election-night page for the TV.
+- `public/results/`: results explorer. Uses `/api/results` when logged in,
+  otherwise `/pub/results`.
+- `public/assets/tally.js`: counting methods (average, most firsts, instant
+  runoff, STV podium, Schulze head-to-head, Borda, fullness-adjusted).
+  `needle.js` simulates win chances from a partial count.
+- `functions/api/[[route]].js`: everything that needs a login.
+  `functions/pub/[[route]].js`: login, and results once revealed.
+- `lib/`: auth (codes, sessions), the tasting engine, results payload.
 - `migrations/`: D1 schema, applied by CI before each deploy.
 
-## API
+## Privacy rules
 
-| Method | Path | Notes |
-|--------|------|-------|
-| GET | `/api/state?voter=<id>` | Pizzas with average and vote count, who has voted, and the caller's own votes. |
-| POST | `/api/pizzas` | `restaurant`, `brought_by` required. Capped at 60 pizzas. |
-| DELETE | `/api/pizzas/<id>?voter=<id>` | Only the voter who added it. Deletes its votes too. |
-| PUT | `/api/votes` | Upsert one score per voter per pizza. `score: null` clears it. |
+- Every `/api` route requires a session; `/pub` must never return names,
+  emails or the lineup before the admin sets the phase to `revealed`.
+- Emails leave the server only in `/api/admin`. Guests and the public see
+  display names. Results renumber voters so user IDs never leave either.
+- Writes must be JSON (`readJson`), which with the SameSite=Lax session
+  cookie blocks cross-site writes.
 
-There are no accounts. Each browser makes a random voter ID and keeps it
-in `localStorage`, so clearing site data or switching phones makes a new
-voter. Never return `creator_id` or `voter_id` from the API: knowing
-someone's ID lets you edit their votes.
+## Login
 
-If the `PARTY_CODE` secret is set, every write needs a matching
-`x-party-code` header. Share `https://pizzacontest.ca/?code=<code>` and
-the page stores it. Set it with
-`npx wrangler pages secret put PARTY_CODE --project-name=pizza-contest`.
+`/pub/login/start` emails a 6-digit code through Resend from
+`login@pizzacontest.ca`; `/pub/login/verify` sets the `pizza_session`
+cookie (30 days). Codes last 10 minutes, allow 5 tries, one per minute per
+email. Sends are capped at 90 a day site-wide (Resend's free plan allows
+100) and 40 per IP (guests at the party share the WiFi). Admins are the
+addresses in the `ADMIN_EMAILS` secret.
 
-## Git
+Resend's DNS records (DKIM, SPF and MX on `send.`) were added by its
+Cloudflare auto-configure; `_dmarc` is `p=none`.
 
-Personal repo `JontiH/pizza-contest`. Local git config commits as
-`JontiH` and pushes with `~/.ssh/JontiH`. Run `gh` with
-`GH_TOKEN=$(gh auth token --user JontiH)`.
+## Phases
+
+`signup` (lineup only) → `tasting` (checked-in guests get slices) →
+`closed` (scores locked, results for guests, count page) → `revealed`
+(public results). The admin switches phases from the Admin tab.
+
+The tasting engine (`lib/tasting.js`) gives each guest the untried pizza
+eaten least often at their current slice number, so early and late slices
+spread evenly and late arrivals balance out.
 
 ## Cloudflare
 
 | Name | ID |
 |------|----|
 | Account | `7679249973b3ca7cd658c198c69e1e5e` |
-| Pages project | `pizza-contest` (`pizza-contest.pages.dev`) |
+| Pages project | `pizza-contest` (`pizza-contest.pages.dev`, `pizzacontest.ca`) |
 | D1 database | `pizza-contest` (ID in `wrangler.toml`) |
 
-`scripts/setup.sh` does the one-time setup. It opens a pre-filled token
-page in the dashboard, then creates the D1 database, writes its ID into
-`wrangler.toml`, and sets the repo secret, the `PARTY_CODE` secret and the
-custom domain. It's safe to re-run.
+Secrets on the Pages project: `ADMIN_EMAILS`, `RESEND_API_KEY`.
+`scripts/setup.sh` sets them and the rest of the one-time setup; it's safe
+to re-run. The repo secret `CLOUDFLARE_API_TOKEN` and local `.env` hold a
+token for this project only.
 
-Pushes to `main` run `.github/workflows/deploy.yml`: D1 migrations, then
-`wrangler pages deploy`. The `CLOUDFLARE_API_TOKEN` repo secret and the
-local `.env` (gitignored, see `.env.example`) hold a token for this
-project only, with Account: Cloudflare Pages Edit and Account: D1 Edit,
-plus Zone Read and DNS Edit on `pizzacontest.ca`.
+Pushes to `main` run `.github/workflows/deploy.yml`: migrations, then
+`wrangler pages deploy`.
 
 ## Local dev
 
-Host Node is too old for wrangler, so run it in Docker:
-
 ```bash
-docker run --rm -it -v "$PWD":/app -w /app -p 8788:8788 node:22-slim sh -c \
-  "apt-get update -qq && apt-get install -y -qq ca-certificates && \
-   npx -y wrangler@4 d1 migrations apply DB --local && \
-   npx -y wrangler@4 pages dev --ip 0.0.0.0 --port 8788"
+docker compose up -d        # http://localhost:8788
+docker compose down -v      # wipe the local database
 ```
 
-Open http://localhost:8788. Local data lives in `.wrangler/` (gitignored).
-Put local secrets such as `PARTY_CODE` in `.dev.vars` (gitignored). Keep
-that file even if it's empty: without it, wrangler loads `.env` into the
-Worker, including the API token.
+Without `RESEND_API_KEY`, on localhost the code is printed in the logs and
+filled in on screen. Local admins come from `.dev.vars` (gitignored); keep
+that file even if empty, or wrangler loads `.env` (with the API token) into
+the Worker.
+
+Host Node is too old for wrangler, so everything runs in `node:22-slim`.
