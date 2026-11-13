@@ -68,8 +68,10 @@ async function route(ctx, method, path) {
   }
 
   if (path === "results" && method === "GET") {
-    if (!["closed", "revealed"].includes(ctx.settings.phase)) throw new HttpError(403, "results come out after voting closes");
-    return json(await buildResults(ctx.env, { includeBringer: true }));
+    // Admins can preview any time; guests see results once voting closes.
+    const open = ["closed", "revealed"].includes(ctx.settings.phase);
+    if (!open && !ctx.admin) throw new HttpError(403, "results come out after voting closes");
+    return json({ ...(await buildResults(ctx.env, { includeBringer: true })), preview: !open });
   }
 
   if (path.startsWith("admin")) {

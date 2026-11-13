@@ -346,7 +346,6 @@ function renderResultsLinks() {
     <div class="card stack">
       <h2 style="margin-top:0">Results</h2>
       <a class="button" href="/results/">Open the results explorer</a>
-      ${me.admin ? `<a class="button secondary" href="/app/count.html">Election night count (for the TV)</a>` : ""}
     </div>`;
 }
 
@@ -375,7 +374,7 @@ async function renderAdmin() {
         ${METHODS.map((m) => `<option value="${m.key}" ${a.settings.official_method === m.key ? "selected" : ""}>${m.label}</option>`).join("")}
       </select>
     </div>
-    <p class="row"><a href="/app/count.html">Election night count</a> · <a href="/results/">Results explorer</a></p>
+    <p class="row"><a href="/results/">Preview results (admin only)</a></p>
 
     <h2>Waiting for approval (${pending.length})</h2>
     ${

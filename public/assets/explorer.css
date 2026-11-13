@@ -40,3 +40,4 @@ dl dt { font-weight: 700; margin-top: 0.5rem; }
 dl dd { margin: 0; }
 button.worst { display: flex; gap: 0.8rem; align-items: center; width: 100%; text-align: left; color: var(--ink); background: #ececec; margin-top: 0.8rem; }
 button.worst .medal { font-size: 1.8rem; }
+.preview-note { background: #ffe9a8; margin: 0.5rem 0 1rem; }
