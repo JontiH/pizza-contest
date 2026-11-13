@@ -1,4 +1,4 @@
-import { isAdmin, logout, sessionEmail } from "../../lib/auth.js";
+import { isAdmin, logout, notifyAdmins, sessionEmail } from "../../lib/auth.js";
 import { HttpError, bad, handle, json, readJson, text } from "../../lib/http.js";
 import { buildResults } from "../../lib/results.js";
 import { geocodeAddress, guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
@@ -115,6 +115,7 @@ async function register(ctx, body) {
       await ctx.env.DB.prepare(`INSERT INTO users (email, name, status) VALUES (?, ?, ?)`)
         .bind(ctx.email, name, ctx.admin ? "approved" : "pending")
         .run();
+      if (!ctx.admin) await notifyAdmins(ctx.env, ctx.request, name, ctx.email);
     }
   } catch (e) {
     if (String(e.message).includes("UNIQUE")) throw new HttpError(409, "someone already has that name");
