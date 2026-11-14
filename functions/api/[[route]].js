@@ -346,6 +346,23 @@ async function admin(ctx, method, path) {
     return json({ ok: true });
   }
 
+  if ((match = path.match(/^users\/(\d+)$/)) && method === "DELETE") {
+    const id = +match[1];
+    const user = await env.DB.prepare(`SELECT email, status FROM users WHERE id = ?`).bind(id).first();
+    if (!user) throw bad("no such user");
+    if (user.status !== "rejected") throw bad("reject them first");
+    const used = await env.DB.prepare(
+      `SELECT (SELECT COUNT(*) FROM pizzas WHERE bringer_id = ?1) + (SELECT COUNT(*) FROM tastings WHERE user_id = ?1) AS n`
+    ).bind(id).first("n");
+    if (used) throw bad("they have pizzas or scores; move the pizzas to someone else first");
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM sessions WHERE email = ?`).bind(user.email),
+      env.DB.prepare(`DELETE FROM login_codes WHERE email = ?`).bind(user.email),
+      env.DB.prepare(`DELETE FROM users WHERE id = ?`).bind(id),
+    ]);
+    return json({ ok: true });
+  }
+
   if (path === "pizzas" && method === "POST") {
     const body = await readJson(ctx.request);
     const bringer = body.bringer_id ? Number(body.bringer_id) : null;

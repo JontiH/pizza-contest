@@ -477,7 +477,8 @@ async function renderAdmin() {
             <td>${u.scored}</td>
             <td>${
               u.status === "rejected"
-                ? `<button class="small secondary" data-user="${u.id}" data-status="approved">Approve</button>`
+                ? `<button class="small secondary" data-user="${u.id}" data-status="approved">Approve</button>
+                   <button class="small link" data-delete-user="${u.id}" data-name="${esc(u.name)}">Delete</button>`
                 : `<button class="small link" data-user="${u.id}" data-status="rejected">Remove</button>`
             }</td>
           </tr>`
@@ -632,6 +633,9 @@ view.addEventListener("click", async (e) => {
       return renderMain();
     } else if (d.user) {
       await api("POST", `/api/admin/users/${d.user}`, { status: d.status });
+    } else if (d.deleteUser) {
+      if (!confirm(`Delete ${d.name} for good?`)) return;
+      await api("DELETE", `/api/admin/users/${d.deleteUser}`);
     } else if (d.checkin) {
       await api("POST", `/api/admin/users/${d.checkin}`, { checked_in: d.value === "true" });
     } else if (d.pizza) {
