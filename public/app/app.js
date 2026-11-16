@@ -232,7 +232,7 @@ function lineupTable(board, cat, open) {
         .join("")
     : `<tr><td colspan="3" class="empty">Nobody yet.</td></tr>`;
   return `
-    <h3 class="cat">${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "anything beyond cheese"} · ${rows.length}</span></h3>
+    <h3 class="cat">${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "pepperoni, peppers, mushrooms, etc."} · ${rows.length}</span></h3>
     <table class="lineup">
       <thead><tr><th>Restaurant</th><th>Pizza type</th><th>Brought by</th></tr></thead>
       <tbody>${body}</tbody>
