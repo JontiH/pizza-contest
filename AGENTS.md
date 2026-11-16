@@ -23,8 +23,11 @@ time to score from 1 to 10. Results are counted several ways and published.
 
 ## Lineup and places
 
+The two categories are shown as Cheese and Not cheese; the keys in code and
+the database stay `platonic` and `non_platonic`.
+
 Pizzas have a restaurant, a pizza type (`kind`, required only for
-non-platonic), extra `notes`, and for returning champions a `placing`
+not cheese), extra `notes`, and for returning champions a `placing`
 (1 to 3, shown as gold/silver/bronze "v1" labels outlined blue; this
 contest's podium on the results page uses red-outlined "v2" labels).
 Guests add one pizza of their own plus any champion slots; admins add any

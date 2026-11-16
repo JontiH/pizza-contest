@@ -171,8 +171,8 @@ function parsePlacing(value) {
   return n;
 }
 
-// Guests must give a pizza type in Non-platonic; Platonic is cheese by
-// definition. Champion slots and admin entries may leave it blank.
+// Guests must give a pizza type in Not cheese; the Cheese category is
+// cheese by definition. Champion slots and admin entries may leave it blank.
 function pizzaFields(body, { partial = false, requireKind = false, category = null } = {}) {
   const out = {};
   if (!partial || body.restaurant !== undefined) out.restaurant = text(body.restaurant, "restaurant", 60, true);
@@ -183,7 +183,7 @@ function pizzaFields(body, { partial = false, requireKind = false, category = nu
     out.category = body.category;
   }
   const cat = out.category ?? category;
-  if (requireKind && cat === "non_platonic" && (out.kind ?? body.currentKind) === "") throw bad("pizza type is required for non-platonic");
+  if (requireKind && cat === "non_platonic" && (out.kind ?? body.currentKind) === "") throw bad("pizza type is required for not cheese");
   return out;
 }
 

@@ -12,7 +12,7 @@ export const METHODS = [
   { key: "adjusted", label: "Fullness-adjusted", blurb: "Average after removing the effect of slice order and of harsh or generous scorers." },
 ];
 
-export const CATEGORY_LABELS = { platonic: "Platonic", non_platonic: "Non-platonic" };
+export const CATEGORY_LABELS = { platonic: "Cheese", non_platonic: "Not cheese" };
 
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 const mean = (xs) => (xs.length ? sum(xs) / xs.length : NaN);

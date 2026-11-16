@@ -158,7 +158,7 @@ function pickForm(own, editing) {
       <input name="restaurant" required maxlength="60" placeholder="Start typing to search" value="${esc(own?.restaurant)}">
     </label>
     <input type="hidden" name="lat"><input type="hidden" name="lon"><input type="hidden" name="address">
-    <label class="field">Pizza type <span class="hint" data-kind-hint>(required for non-platonic)</span>
+    <label class="field">Pizza type <span class="hint" data-kind-hint>(required for not cheese)</span>
       <input name="kind" maxlength="60" placeholder="e.g. Pepperoni, Vodka. Leave blank for plain cheese" value="${esc(own?.kind)}" ${own?.category === "non_platonic" ? "required" : ""}>
     </label>
     <label class="field">Extra notes <span class="hint">(optional)</span>
@@ -232,7 +232,7 @@ function lineupTable(board, cat, open) {
         .join("")
     : `<tr><td colspan="3" class="empty">Nobody yet.</td></tr>`;
   return `
-    <h3 class="cat">${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "anything goes"} · ${rows.length}</span></h3>
+    <h3 class="cat">${CATEGORY_LABELS[cat]} <span class="hint">${cat === "platonic" ? "plain cheese" : "anything beyond cheese"} · ${rows.length}</span></h3>
     <table class="lineup">
       <thead><tr><th>Restaurant</th><th>Pizza type</th><th>Brought by</th></tr></thead>
       <tbody>${body}</tbody>
