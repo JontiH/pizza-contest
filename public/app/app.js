@@ -216,7 +216,7 @@ function lineupTable(board, cat, open) {
             <td>
               <strong>${esc(p.restaurant)}</strong> ${champBadge(p)}
               ${p.box ? `<span class="badge box">#${p.box}</span>` : ""}
-              ${p.finished ? `<span class="badge done">finished</span>` : p.arrived ? `<span class="badge">on the table</span>` : ""}
+              ${p.finished ? `<span class="badge done">out</span>` : p.arrived ? `<span class="badge">on the table</span>` : ""}
               <br>${mapLink(p)}
             </td>
             <td><strong>${pizzaName(p)}</strong>${p.notes ? `<br><span class="hint">${esc(p.notes)}</span>` : ""}</td>
@@ -392,7 +392,27 @@ async function renderTaste() {
     main = `<div class="card slice-card"><h2 style="margin-top:0">You've tried everything on the table</h2><p class="hint">More pizzas may still arrive. This checks automatically.</p><button class="secondary" data-act="refresh">Check now</button></div>`;
     pollTimer = setTimeout(loadTab, 20000);
   }
-  pane.innerHTML = main + scoredList(true);
+  pane.innerHTML = main + scoredList(true) + upNextCard(t);
+  if (t.current) pollTimer = setTimeout(() => refreshUpNext(t.current.pizza_id), 30000);
+}
+
+function upNextCard(t) {
+  if (!t.current || !t.next) return "";
+  return `<aside class="up-next"><div class="num">Up next</div><strong>#${t.next.box}</strong> ${esc(t.next.restaurant)}<div class="hint">Put it in the oven now</div></aside>`;
+}
+
+// Only the corner card is redrawn, so a half-typed score survives. It
+// changes when the host marks the queued pizza out or a new pizza arrives.
+async function refreshUpNext(pizzaId) {
+  try {
+    const t = await api("GET", "/api/tasting");
+    if (t.current?.pizza_id !== pizzaId) return loadTab();
+    $(".up-next")?.remove();
+    $("#pane").insertAdjacentHTML("beforeend", upNextCard(t));
+    pollTimer = setTimeout(() => refreshUpNext(pizzaId), 30000);
+  } catch {
+    pollTimer = setTimeout(() => refreshUpNext(pizzaId), 30000);
+  }
 }
 
 function renderResultsLinks() {
@@ -501,7 +521,7 @@ async function renderAdmin() {
             <td>${bringerSelect(p)}</td>
             <td class="row">
               <button class="small ${p.arrived_at ? "on" : "secondary"}" data-pizza="${p.id}" data-field="arrived" data-value="${!p.arrived_at}">${p.arrived_at ? "On table" : "Arrived"}</button>
-              ${p.arrived_at ? `<button class="small ${p.finished_at ? "on" : "secondary"}" data-pizza="${p.id}" data-field="finished" data-value="${!p.finished_at}">${p.finished_at ? "Finished" : "Finish"}</button>` : ""}
+              ${p.arrived_at ? `<button class="small ${p.finished_at ? "on" : "secondary"}" data-pizza="${p.id}" data-field="finished" data-value="${!p.finished_at}">${p.finished_at ? "Out of pizza" : "Mark out"}</button>` : ""}
             </td>
             <td>${p.scored ? "" : `<button class="small link" data-delete-pizza="${p.id}">Delete</button>`}</td>
           </tr>`

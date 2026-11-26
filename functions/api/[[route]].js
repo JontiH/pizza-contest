@@ -3,7 +3,7 @@ import { HttpError, bad, handle, json, readJson, text } from "../../lib/http.js"
 import { FAQ } from "../../lib/faq.js";
 import { buildResults } from "../../lib/results.js";
 import { geocodeAddress, guessPlace, locationFromMapsLink, parseLocation, searchPlaces } from "../../lib/places.js";
-import { currentSlice, nextSlice, parseScore, scoreSlice, skipSlice } from "../../lib/tasting.js";
+import { currentSlice, fillQueue, nextSlice, parseScore, scoreSlice, skipSlice, upNext } from "../../lib/tasting.js";
 
 const PHASES = ["signup", "tasting", "closed", "revealed"];
 const CATEGORIES = ["platonic", "non_platonic"];
@@ -277,6 +277,8 @@ async function claim(ctx, id, claiming) {
 }
 
 async function tasting(ctx) {
+  const open = ctx.settings.phase === "tasting" && !!ctx.user.checked_in_at;
+  if (open) await fillQueue(ctx.env, ctx.user.id);
   const { results: scored } = await ctx.env.DB.prepare(
     `SELECT t.pizza_id, t.position, t.score, t.note, p.box, p.restaurant, p.kind, p.category
        FROM tastings t JOIN pizzas p ON p.id = t.pizza_id
@@ -296,6 +298,7 @@ async function tasting(ctx) {
     checkedIn: !!ctx.user.checked_in_at,
     allowSkip: ctx.settings.allow_skip === "1",
     current: await currentSlice(ctx.env, ctx.user.id),
+    next: open ? await upNext(ctx.env, ctx.user.id) : null,
     scored,
     left,
   };
@@ -383,14 +386,17 @@ async function admin(ctx, method, path) {
     if (body.arrived === true) await arrive(env, id);
     if (body.arrived === false) await env.DB.prepare(`UPDATE pizzas SET arrived_at = NULL WHERE id = ?`).bind(id).run();
     if (body.finished === true) await env.DB.prepare(`UPDATE pizzas SET finished_at = datetime('now') WHERE id = ?`).bind(id).run();
+    // Nobody should be told to heat a pizza that's gone; they get a new up-next on their next load.
+    if (body.finished === true || body.arrived === false) await env.DB.prepare(`DELETE FROM tastings WHERE pizza_id = ? AND queued = 1`).bind(id).run();
     if (body.finished === false) await env.DB.prepare(`UPDATE pizzas SET finished_at = NULL WHERE id = ?`).bind(id).run();
     return json({ ok: true });
   }
 
   if ((match = path.match(/^pizzas\/(\d+)$/)) && method === "DELETE") {
     const id = +match[1];
-    const tasted = await env.DB.prepare(`SELECT COUNT(*) AS n FROM tastings WHERE pizza_id = ?`).bind(id).first("n");
-    if (tasted) throw bad("people have already been given this pizza; mark it finished instead");
+    const tasted = await env.DB.prepare(`SELECT COUNT(*) AS n FROM tastings WHERE pizza_id = ? AND queued = 0`).bind(id).first("n");
+    if (tasted) throw bad("people have already been given this pizza; mark it out instead");
+    await env.DB.prepare(`DELETE FROM tastings WHERE pizza_id = ?`).bind(id).run();
     await env.DB.prepare(`DELETE FROM pizzas WHERE id = ?`).bind(id).run();
     return json({ ok: true });
   }
