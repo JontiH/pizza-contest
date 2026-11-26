@@ -91,7 +91,9 @@ spread evenly and late arrivals balance out. It also picks an "up next"
 slice ahead of time (`tastings.queued = 1`, shown as a corner card on the
 Vote tab) so guests can heat it while eating the current one. Admin > Pizzas
 "Mark out" (`finished_at`) takes a pizza out of rotation and drops it from
-anyone's up next.
+anyone's up next. Admin > "Try vote mode (test)" runs the Vote tab on fake
+pizzas entirely in the browser (`public/app/sandbox.js`), so nothing touches
+the database.
 
 ## Cloudflare
 

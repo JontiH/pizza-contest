@@ -1,5 +1,6 @@
 import { CATEGORY_LABELS, METHODS } from "/assets/tally.js";
 import { $, $$, ApiError, api, esc, fmt, medal, toast } from "/assets/ui.js";
+import { newSandbox, sandboxNext, sandboxScore, sandboxSkip, sandboxTasting } from "/app/sandbox.js";
 import { askLocation, attachPlaceSearch, drawMap, locationFields } from "/app/places.js";
 
 const view = $("#view");
@@ -7,6 +8,7 @@ const foot = $("#foot");
 let me = null;
 let tab = location.hash.slice(1) || "lineup";
 let loginEmail = "";
+let sandbox = null;
 
 const PHASES = [
   { key: "signup", label: "Sign-up", blurb: "People add pizzas. No tasting yet." },
@@ -87,7 +89,7 @@ function renderMain() {
   const tabs = [
     ["lineup", "Lineup", true],
     ["info", "Info", true],
-    ["vote", "Vote", me.phase !== "signup"],
+    ["vote", "Vote", me.phase !== "signup" || !!sandbox],
     ["results", "Results", ["closed", "revealed"].includes(me.phase)],
     ...(me.admin ? [["admin", "Admin", true]] : []),
   ];
@@ -323,8 +325,9 @@ async function renderInfo() {
 }
 
 async function renderTaste() {
-  const t = await api("GET", "/api/tasting");
-  me.phase = t.phase;
+  let t = await api("GET", "/api/tasting");
+  if (sandbox) t = sandboxTasting(sandbox, t.allowSkip);
+  else me.phase = t.phase;
   const pane = $("#pane");
   const scoredList = (editable) =>
     t.scored.length
@@ -392,9 +395,14 @@ async function renderTaste() {
     main = `<div class="card slice-card"><h2 style="margin-top:0">You've tried everything on the table</h2><p class="hint">More pizzas may still arrive. This checks automatically.</p><button class="secondary" data-act="refresh">Check now</button></div>`;
     pollTimer = setTimeout(loadTab, 20000);
   }
-  pane.innerHTML = main + scoredList(true) + upNextCard(t);
-  if (t.current) pollTimer = setTimeout(() => refreshUpNext(t.current.pizza_id), 30000);
+  pane.innerHTML = sandboxBanner() + main + scoredList(true) + upNextCard(t);
+  if (t.current && !sandbox) pollTimer = setTimeout(() => refreshUpNext(t.current.pizza_id), 30000);
 }
+
+const sandboxBanner = () =>
+  sandbox
+    ? `<div class="card sandbox-banner row"><span class="grow"><strong>Test mode.</strong> Fake pizzas, nothing is saved. Reloading also exits.</span><button class="small secondary" data-act="exit-sandbox">Exit</button></div>`
+    : "";
 
 function upNextCard(t) {
   if (!t.current || !t.next) return "";
@@ -451,7 +459,7 @@ async function renderAdmin() {
     <p class="row">
       <label><input type="checkbox" data-act-change="allow-skip" ${a.settings.allow_skip === "1" ? "checked" : ""}> Let voters skip a pizza for now</label>
     </p>
-    <p class="row"><a href="/results/">Preview results (admin only)</a></p>
+    <p class="row"><a href="/results/">Preview results (admin only)</a> · <button class="small secondary" data-act="start-sandbox">Try vote mode (test)</button></p>
 
     <details class="card info-edit" ${a.settings.info_address ? "" : "open"}>
       <summary><strong>Edit info</strong> <span class="hint">(the Info tab, approved guests only)</span></summary>
@@ -604,6 +612,10 @@ view.addEventListener("submit", async (e) => {
         return loadTab();
       case "score": {
         const pizzaId = Number(form.dataset.id);
+        if (sandbox) {
+          sandboxScore(sandbox, pizzaId, data.score, data.note);
+          return loadTab();
+        }
         await api("PUT", "/api/tasting/score", { pizza_id: pizzaId, score: data.score, note: data.note || "" });
         await api("POST", "/api/tasting/next");
         return loadTab();
@@ -641,9 +653,21 @@ view.addEventListener("click", async (e) => {
     else if (d.act === "remove-pizza") {
       if (!confirm("Remove your pizza from the lineup?")) return;
       await api("DELETE", `/api/pizzas/${d.id}`);
-    } else if (d.act === "next") await api("POST", "/api/tasting/next");
-    else if (d.act === "skip") await api("POST", "/api/tasting/skip");
-    else if (d.act === "refresh") {
+    } else if (d.act === "next") {
+      if (sandbox) sandboxNext(sandbox);
+      else await api("POST", "/api/tasting/next");
+    } else if (d.act === "skip") {
+      if (sandbox) sandboxSkip(sandbox);
+      else await api("POST", "/api/tasting/skip");
+    } else if (d.act === "start-sandbox") {
+      sandbox = newSandbox();
+      tab = "vote";
+      return renderMain();
+    } else if (d.act === "exit-sandbox") {
+      sandbox = null;
+      tab = "admin";
+      return renderMain();
+    } else if (d.act === "refresh") {
       /* reload below */
     } else if (d.phase) {
       const label = PHASES.find((p) => p.key === d.phase).label;
@@ -691,7 +715,9 @@ view.addEventListener("input", (e) => {
 view.addEventListener("change", async (e) => {
   const el = e.target;
   try {
-    if (el.dataset.renote) {
+    if (sandbox && (el.dataset.renote || el.dataset.rescore)) {
+      sandboxScore(sandbox, Number(el.dataset.renote || el.dataset.rescore), el.dataset.rescore ? el.value : undefined, el.dataset.renote ? el.value : undefined);
+    } else if (el.dataset.renote) {
       await api("PUT", "/api/tasting/score", { pizza_id: Number(el.dataset.renote), note: el.value });
       toast("Note saved");
     } else if (el.dataset.rescore) {

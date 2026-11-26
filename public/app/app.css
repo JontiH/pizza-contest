@@ -66,3 +66,4 @@ table.lineup .map-link { margin-left: 0; }
 .info-edit form { margin-top: 0.8rem; }
 .info-edit textarea { width: 100%; padding: 0.55rem 0.7rem; border: 1px solid #ddcbb8; border-radius: 0.5rem; font: inherit; }
 nav.tabs button { padding-inline: 0.4rem; }
+.sandbox-banner { background: #e7f0ff; border: 1px solid #9db8e6; margin-bottom: 1rem; }
