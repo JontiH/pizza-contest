@@ -9,6 +9,7 @@ let me = null;
 let tab = location.hash.slice(1) || "lineup";
 let loginEmail = "";
 let sandbox = null;
+let scoresOpen = false;
 
 const PHASES = [
   { key: "signup", label: "Sign-up", blurb: "People add pizzas. No tasting yet." },
@@ -356,6 +357,25 @@ async function renderTaste() {
            .join("")}</ul>`
       : "";
 
+  const scoresMenu = () =>
+    t.scored.length
+      ? `<div class="scores-menu">
+          <button class="small secondary" data-act="toggle-scores" aria-expanded="${scoresOpen}">☰ Your scores (${t.scored.length})</button>
+          <ul class="cards scored-list" ${scoresOpen ? "" : "hidden"}>${[...t.scored]
+            .reverse()
+            .map(
+              (s) => `<li class="card"><details>
+                <summary><span class="hint">${s.position}.</span> ${pizzaLine(s)} <strong class="s-score">${fmt(s.score, 2)}</strong></summary>
+                <div class="stack">
+                  <input type="number" min="1" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">
+                  <input class="note-input" maxlength="280" placeholder="Notes" value="${esc(s.note)}" data-renote="${s.pizza_id}" aria-label="Notes">
+                </div>
+              </details></li>`
+            )
+            .join("")}</ul>
+        </div>`
+      : "";
+
   if (t.phase === "signup") {
     pane.innerHTML = `<div class="card"><h2 style="margin-top:0">Tasting hasn't started</h2><p>At the party, the host checks you in and opens tasting. Then this page hands you one slice at a time.</p></div>`;
     return;
@@ -388,6 +408,7 @@ async function renderTaste() {
           <button>Save score, next slice</button>
           ${t.allowSkip ? `<button type="button" class="secondary" data-act="skip">Skip this pizza for now</button>` : ""}
         </div>
+        <div class="up-next">${upNextText(t)}</div>
       </form>`;
   } else if (t.left > 0) {
     main = `<div class="card slice-card"><p>${t.scored.length ? "Ready for more?" : "Ready when you are."}</p><button data-act="next">Give me a slice</button></div>`;
@@ -395,7 +416,7 @@ async function renderTaste() {
     main = `<div class="card slice-card"><h2 style="margin-top:0">You've tried everything on the table</h2><p class="hint">More pizzas may still arrive. This checks automatically.</p><button class="secondary" data-act="refresh">Check now</button></div>`;
     pollTimer = setTimeout(loadTab, 20000);
   }
-  pane.innerHTML = sandboxBanner() + main + scoredList(true) + upNextCard(t);
+  pane.innerHTML = sandboxBanner() + scoresMenu() + main;
   if (t.current && !sandbox) pollTimer = setTimeout(() => refreshUpNext(t.current.pizza_id), 30000);
 }
 
@@ -404,19 +425,15 @@ const sandboxBanner = () =>
     ? `<div class="card sandbox-banner row"><span class="grow"><strong>Test mode.</strong> Fake pizzas, nothing is saved. Reloading also exits.</span><button class="small secondary" data-act="exit-sandbox">Exit</button></div>`
     : "";
 
-function upNextCard(t) {
-  if (!t.current || !t.next) return "";
-  return `<aside class="up-next"><div class="num">Up next</div><strong>#${t.next.box}</strong> ${esc(t.next.restaurant)}<div class="hint">Put it in the oven now</div></aside>`;
-}
+const upNextText = (t) => (t.next ? `Up next: <strong>${esc(t.next.restaurant)}</strong>` : "");
 
-// Only the corner card is redrawn, so a half-typed score survives. It
+// Only the up-next line is redrawn, so a half-typed score survives. It
 // changes when the host marks the queued pizza out or a new pizza arrives.
 async function refreshUpNext(pizzaId) {
   try {
     const t = await api("GET", "/api/tasting");
     if (t.current?.pizza_id !== pizzaId) return loadTab();
-    $(".up-next")?.remove();
-    $("#pane").insertAdjacentHTML("beforeend", upNextCard(t));
+    $(".up-next").innerHTML = upNextText(t);
     pollTimer = setTimeout(() => refreshUpNext(pizzaId), 30000);
   } catch {
     pollTimer = setTimeout(() => refreshUpNext(pizzaId), 30000);
@@ -659,6 +676,11 @@ view.addEventListener("click", async (e) => {
     } else if (d.act === "skip") {
       if (sandbox) sandboxSkip(sandbox);
       else await api("POST", "/api/tasting/skip");
+    } else if (d.act === "toggle-scores") {
+      scoresOpen = !scoresOpen;
+      el.setAttribute("aria-expanded", scoresOpen);
+      $(".scored-list", el.parentElement).hidden = !scoresOpen;
+      return;
     } else if (d.act === "start-sandbox") {
       sandbox = newSandbox();
       tab = "vote";
@@ -717,11 +739,13 @@ view.addEventListener("change", async (e) => {
   try {
     if (sandbox && (el.dataset.renote || el.dataset.rescore)) {
       sandboxScore(sandbox, Number(el.dataset.renote || el.dataset.rescore), el.dataset.rescore ? el.value : undefined, el.dataset.renote ? el.value : undefined);
+      if (el.dataset.rescore) el.closest("details").querySelector(".s-score").textContent = fmt(Number(el.value), 2);
     } else if (el.dataset.renote) {
       await api("PUT", "/api/tasting/score", { pizza_id: Number(el.dataset.renote), note: el.value });
       toast("Note saved");
     } else if (el.dataset.rescore) {
       await api("PUT", "/api/tasting/score", { pizza_id: Number(el.dataset.rescore), score: el.value });
+      el.closest("details").querySelector(".s-score").textContent = fmt(Number(el.value), 2);
       toast("Score updated");
     } else if (el.dataset.bringer) {
       await api("POST", `/api/admin/pizzas/${el.dataset.bringer}`, { bringer_id: el.value || null });
