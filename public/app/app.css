@@ -7,9 +7,9 @@
 .slice-card .rest { font-size: 1.3rem; font-weight: 700; }
 .actions { display: flex; gap: 0.6rem; align-items: stretch; }
 .actions .stack { flex: 1; min-width: 0; align-content: start; }
-.up-next { flex: 0 0 38%; display: flex; flex-direction: column; justify-content: center; gap: 0.15rem; padding: 0.5rem 0.7rem; background: #fff6d8; border: 2px solid var(--red); border-radius: 0.5rem; text-align: left; font-size: 1.05rem; line-height: 1.2; }
+.up-next { flex: 0 0 40%; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.25rem; padding: 0.5rem 0.6rem; background: #fff6d8; border: 2px solid var(--red); border-radius: 0.5rem; text-align: center; font-size: 1.25rem; line-height: 1.2; }
 .up-next:empty { display: none; }
-.up-next span { color: var(--muted); font-size: 0.95rem; }
+.up-next span { color: var(--ink); font-size: 1rem; font-weight: 600; }
 .scores-menu { display: grid; gap: 0.5rem; margin-bottom: 0.8rem; }
 .scores-menu > button { width: 100%; text-align: left; font-size: 1.15rem; font-weight: 700; padding: 0.7rem 1rem; }
 .scores-menu .scored-list[hidden] { display: none; }
