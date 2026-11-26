@@ -341,7 +341,7 @@ async function renderTaste() {
                  <span class="grow">${pizzaLine(s)}</span>
                  ${
                    editable
-                     ? `<input type="number" min="1" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">`
+                     ? `<input type="number" min="0" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">`
                      : `<strong>${fmt(s.score, 2)}</strong>`
                  }
                </div>
@@ -360,14 +360,14 @@ async function renderTaste() {
   const scoresMenu = () =>
     t.scored.length
       ? `<div class="scores-menu">
-          <button class="small secondary" data-act="toggle-scores" aria-expanded="${scoresOpen}">☰ Your scores (${t.scored.length})</button>
+          <button class="secondary" data-act="toggle-scores" aria-expanded="${scoresOpen}">☰ Your scores (${t.scored.length})</button>
           <ul class="cards scored-list" ${scoresOpen ? "" : "hidden"}>${[...t.scored]
             .reverse()
             .map(
               (s) => `<li class="card"><details>
                 <summary><span class="hint">${s.position}.</span> ${pizzaLine(s)} <strong class="s-score">${fmt(s.score, 2)}</strong></summary>
                 <div class="stack">
-                  <input type="number" min="1" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">
+                  <input type="number" min="0" max="10" step="0.01" value="${s.score}" data-rescore="${s.pizza_id}" aria-label="Score">
                   <input class="note-input" maxlength="280" placeholder="Notes" value="${esc(s.note)}" data-renote="${s.pizza_id}" aria-label="Notes">
                 </div>
               </details></li>`
@@ -400,15 +400,17 @@ async function renderTaste() {
         <div class="rest">${esc(c.restaurant)}</div>
         <div class="hint">${esc(c.kind)}${c.kind ? " · " : ""}${CATEGORY_LABELS[c.category]}</div>
         <div class="score-picker">
-          <input type="range" min="1" max="10" step="0.1" value="5.5" data-sync="range" aria-label="Score slider">
-          <input type="number" class="big" name="score" min="1" max="10" step="0.01" required placeholder="–" data-sync="number" aria-label="Score">
+          <input type="range" min="0" max="10" step="0.1" value="5" data-sync="range" aria-label="Score slider">
+          <input type="number" class="big" name="score" min="0" max="10" step="0.01" required placeholder="–" data-sync="number" aria-label="Score">
           <textarea name="note" maxlength="280" rows="2" placeholder="Notes (optional)"></textarea>
         </div>
-        <div class="stack">
-          <button>Save score, next slice</button>
-          ${t.allowSkip ? `<button type="button" class="secondary" data-act="skip">Skip this pizza for now</button>` : ""}
+        <div class="actions">
+          <div class="stack">
+            <button>Save score, next slice</button>
+            ${t.allowSkip ? `<button type="button" class="secondary" data-act="skip">Skip this pizza for now</button>` : ""}
+          </div>
+          <div class="up-next">${upNextText(t)}</div>
         </div>
-        <div class="up-next">${upNextText(t)}</div>
       </form>`;
   } else if (t.left > 0) {
     main = `<div class="card slice-card"><p>${t.scored.length ? "Ready for more?" : "Ready when you are."}</p><button data-act="next">Give me a slice</button></div>`;
@@ -425,7 +427,7 @@ const sandboxBanner = () =>
     ? `<div class="card sandbox-banner row"><span class="grow"><strong>Test mode.</strong> Fake pizzas, nothing is saved. Reloading also exits.</span><button class="small secondary" data-act="exit-sandbox">Exit</button></div>`
     : "";
 
-const upNextText = (t) => (t.next ? `Up next: <strong>${esc(t.next.restaurant)}</strong>` : "");
+const upNextText = (t) => (t.next ? `<span>Up next:</span><strong>${esc(t.next.restaurant)}</strong>` : "");
 
 // Only the up-next line is redrawn, so a half-typed score survives. It
 // changes when the host marks the queued pizza out or a new pizza arrives.

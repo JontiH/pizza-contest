@@ -30,7 +30,7 @@ export function winChances(data, category, countedVoters, totalVoters, method, s
   return wins;
 }
 
-const clamp = (s) => Math.min(10, Math.max(1, Math.round(s * 100) / 100));
+const clamp = (s) => Math.min(10, Math.max(0, Math.round(s * 100) / 100));
 function gauss() {
   const u = 1 - Math.random();
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
