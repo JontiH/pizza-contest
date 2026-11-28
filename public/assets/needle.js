@@ -36,8 +36,9 @@ function gauss() {
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random());
 }
 
-// A half-dial gauge. The needle twitches around its value until told to
-// stop, like the real one did on election night.
+// A half-dial gauge. The needle twitches around its value like the real one
+// did on election night, then settles 10 seconds after the value last
+// changed (or straight away on stop()).
 export class Needle {
   constructor(el, label) {
     this.value = 0.5;
@@ -59,20 +60,29 @@ export class Needle {
       <div class="needle-caption"></div>`;
     this.arm = el.querySelector(".needle-arm");
     this.caption = el.querySelector(".needle-caption");
-    this.timer = setInterval(() => this.draw(true), 120);
-    this.draw(false);
+    this.timer = null;
+    this.calm = 0;
+    this.wake();
   }
   set(value, caption) {
+    if (value !== this.value) this.wake();
     this.value = value;
     this.caption.innerHTML = caption;
+    if (!this.timer) this.draw(false);
+  }
+  wake() {
+    this.calm = Date.now() + 10000;
+    if (!this.timer) this.timer = setInterval(() => (Date.now() > this.calm ? this.stop() : this.draw(true)), 120);
   }
   draw(jitter) {
-    const spread = jitter ? Math.min(this.value, 1 - this.value) * 0.12 : 0;
+    const fade = jitter ? Math.min(1, (this.calm - Date.now()) / 4000) : 0;
+    const spread = jitter ? Math.min(this.value, 1 - this.value) * 0.12 * Math.max(0.15, fade) : 0;
     const v = Math.min(1, Math.max(0, this.value + (Math.random() - 0.5) * 2 * spread));
     this.arm.style.transform = `rotate(${(v - 0.5) * 180}deg)`;
   }
   stop() {
     clearInterval(this.timer);
+    this.timer = null;
     this.draw(false);
   }
 }
