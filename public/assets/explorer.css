@@ -79,3 +79,6 @@ button.worst .medal { font-size: 1.8rem; }
 .race-progress .track { width: 9rem; height: 0.7rem; background: #e6e6e6; }
 .race-progress .track span { display: block; height: 100%; background: #19a34a; transition: width 0.4s; }
 @media (max-width: 480px) { .race-table .by { display: none; } }
+.card.you h3 { margin: 1rem 0 0.4rem; }
+.card.you p:first-child { margin-top: 0; }
+table.list tr.hint td { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }

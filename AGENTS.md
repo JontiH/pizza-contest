@@ -15,8 +15,10 @@ time to score from 1 to 10. Results are counted several ways and published.
   otherwise `/pub/results`.
   The page is a Cheese / Not cheese / Combined tab, a podium and worst
   pizza once voting is over, a "Rank pizzas by" list (each method with its
-  explanation), an election-night style results box, the Everyone's scores
-  table, then fun facts and the method comparison, both folded.
+  explanation), an election-night style results box, then folding sections: your
+  scores, fun facts about you, everyone's scores, fun facts about everyone,
+  and the method comparison. `/api/results` returns `you` (the viewer's
+  renumbered voter ID) for the personal sections.
 - `public/assets/tally.js`: counting methods (average, most firsts, instant
   runoff, STV podium, Schulze head-to-head, Borda, fullness-adjusted).
   `needle.js` simulates win chances from a partial count.

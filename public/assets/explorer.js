@@ -75,7 +75,15 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
       </section>`;
   }
 
+  // Folded sections keep their open/closed state when results redraw.
+  const openState = new Map();
   function render() {
+    for (const d of root.querySelectorAll("details[data-key]")) openState.set(d.dataset.key, d.open);
+    draw();
+    for (const d of root.querySelectorAll("details[data-key]")) if (openState.has(d.dataset.key)) d.open = openState.get(d.dataset.key);
+  }
+
+  function draw() {
     if (!cats.length || !data.scores.length) {
       root.innerHTML = `<p class="empty">No scores yet.</p>`;
       return;
@@ -141,7 +149,17 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
       ${raceCard(a, order, method, cat, final)}
 
 
-      <h2>Everyone's scores</h2>
+      ${
+        data.you != null
+          ? voter.has(data.you)
+            ? `<details class="more" data-key="you" open><summary>Your scores</summary><div class="card you">${personRanking(data.you, true)}</div></details>
+               <details class="more" data-key="youfacts"><summary>Fun facts about you</summary><div class="card you">${personFacts(data.you, true) || `<p class="hint">Score a few more pizzas first.</p>`}</div></details>`
+            : `<details class="more" data-key="you" open><summary>Your scores</summary><p class="hint">You haven't scored anything yet.</p></details>`
+          : ""
+      }
+
+      <details class="more" data-key="heat" open>
+      <summary>Everyone's scores</summary>
       <p class="hint">Pizzas run left to right in ${m.label.toLowerCase()} order. Tap any pizza or person for details.</p>
       <div class="scroll heat-wrap"><table class="heat">
         <tr><th></th>${cols.map((id) => `<th><button class="link" data-pizza="${id}">${pizza.get(id).box ? `#${pizza.get(id).box} ` : ""}${pname(id)}</button></th>`).join("")}</tr>
@@ -156,9 +174,10 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
           .join("")}
         <tr class="avg"><th>Average</th>${cols.map((id) => `<td>${fmt(a.stats.get(id).mean, 2)}</td>`).join("")}</tr>
       </table></div>
+      </details>
 
-      <details class="more">
-      <summary>Fun facts</summary>
+      <details class="more" data-key="facts">
+      <summary>Fun facts about everyone</summary>
       <div class="facts">${funFacts(a, voter, pname)
         .map((f) => `<div class="card fact">${f}</div>`)
         .join("")}
@@ -174,7 +193,7 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
       </div>
       </details>
 
-      <details class="more">
+      <details class="more" data-key="methods">
         <summary>How every method ranks each pizza</summary>
         <div class="scroll"><table class="methods">
           <tr><th>Pizza</th>${METHODS.map((x) => `<th title="${esc(x.blurb)}" class="${x.key === method ? "official" : ""}">${x.label}</th>`).join("")}<th title="How many people scored it their lowest">Most worsts</th></tr>
@@ -231,17 +250,22 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
     if (!dialog.open) dialog.showModal();
   }
 
-  function voterDialog(v) {
+  // Agreement, taste twin, hot takes and ranking for one voter. Used for
+  // the "Your scores" section and for tapping anyone's name.
+  function personHtml(v, own) {
+    return personFacts(v, own) + personRanking(v, own);
+  }
+
+  function personFacts(v, own) {
     const info = person(data, v);
     const league = agreementLeague(data);
     const place = league.findIndex((x) => x.v === v);
-    dialog.innerHTML = `
-      <button class="close secondary small" data-close>Close</button>
-      <h2 style="margin-top:0">${esc(voter.get(v).name)}</h2>
+    const they = own ? "you" : "they";
+    return `
       ${
         place >= 0
           ? `<p>${ordinal(place + 1)} most in tune with the group, out of ${league.length}
-             <span class="hint">(agreement ${fmt(info.agreement, 2)}, where 1 means their scores rose and fell exactly with everyone else's)</span></p>`
+             <span class="hint">(agreement ${fmt(info.agreement, 2)}, where 1 means ${own ? "your" : "their"} scores rose and fell exactly with everyone else's)</span></p>`
           : ""
       }
       ${info.twin ? `<p>Taste twin: <button class="link" data-voter="${info.twin.v}">${esc(voter.get(info.twin.v).name)}</button> <span class="hint">(${fmt(info.twin.r, 2)} over ${info.twin.shared} shared pizzas)</span></p>` : ""}
@@ -249,19 +273,34 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
         info.hotTakes.length
           ? `<h3>Hot takes</h3><ul>${info.hotTakes
               .map(
-                (h) => `<li><button class="link" data-pizza="${h.p}">${pname(h.p)}</button>: gave ${fmt(h.s, 2)}, everyone else averaged ${fmt(h.others, 2)}</li>`
+                (h) => `<li><button class="link" data-pizza="${h.p}">${pname(h.p)}</button>: ${they} gave ${fmt(h.s, 2)}, everyone else averaged ${fmt(h.others, 2)}</li>`
               )
               .join("")}</ul>`
           : ""
-      }
-      <h3>Their ranking</h3>
-      <table class="list">${info.ranking
-        .map(
-          (o, i) => `<tr><td>${i + 1}.</td><td><button class="link" data-pizza="${o.p}">${pname(o.p)}</button> <span class="hint">${CATEGORY_LABELS[pizza.get(o.p).category]}</span></td><td><strong>${fmt(o.s, 2)}</strong></td><td class="hint">${ordinal(o.pos)} slice</td></tr>${
-            o.note ? `<tr class="note-row"><td></td><td colspan="3">“${esc(o.note)}”</td></tr>` : ""
-          }`
-        )
-        .join("")}</table>`;
+      }`;
+  }
+
+  function personRanking(v, own) {
+    const info = person(data, v);
+    const all = analyse(data, null).stats;
+    return `
+      ${own ? "" : "<h3>Their ranking</h3>"}
+      <table class="list">
+        <tr class="hint"><td></td><td></td><td>${own ? "You" : "Them"}</td><td>Everyone</td><td></td></tr>
+        ${info.ranking
+          .map(
+            (o, i) => `<tr><td>${i + 1}.</td><td><button class="link" data-pizza="${o.p}">${pname(o.p)}</button> <span class="hint">${CATEGORY_LABELS[pizza.get(o.p).category]}</span></td><td><strong>${fmt(o.s, 2)}</strong></td><td>${fmt(all.get(o.p).mean, 2)}</td><td class="hint">${ordinal(o.pos)} slice</td></tr>${
+              o.note ? `<tr class="note-row"><td></td><td colspan="4">“${esc(o.note)}”</td></tr>` : ""
+            }`
+          )
+          .join("")}</table>`;
+  }
+
+  function voterDialog(v) {
+    dialog.innerHTML = `
+      <button class="close secondary small" data-close>Close</button>
+      <h2 style="margin-top:0">${esc(voter.get(v).name)}</h2>
+      ${personHtml(v, v === data.you)}`;
     if (!dialog.open) dialog.showModal();
   }
 

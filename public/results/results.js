@@ -30,14 +30,16 @@ async function testData(seed) {
 
 function mountTest({ full, realLineup }) {
   let shown = 0;
+  let you = full.voters[0].id;
   let timer = null;
   const bar = document.createElement("div");
   bar.className = "card preview-note stack";
   root.before(bar);
-  const explorer = mountExplorer(root, firstScores(full, 0), { official: "" });
+  const slice = () => ({ ...firstScores(full, shown), you });
+  const explorer = mountExplorer(root, slice(), { official: "" });
 
   const draw = () => {
-    explorer.update(firstScores(full, shown));
+    explorer.update(slice());
     const voted = new Set(full.scores.slice(0, shown).map((o) => o.v)).size;
     bar.querySelector("[data-count]").textContent = `${shown} of ${full.scores.length} votes in, from ${voted} of ${full.voters.length} guests`;
     bar.querySelector("[data-auto]").textContent = timer ? "Pause" : "Auto-play";
@@ -63,10 +65,15 @@ function mountTest({ full, realLineup }) {
       <button class="small secondary" data-all>All</button>
       <button class="small link" data-reset>Reset</button>
       <label class="small"><input type="checkbox" data-final> Voting finished</label>
+      <label class="small">View as <select data-you>${full.voters.map((v) => `<option value="${v.id}">${esc(v.name)}</option>`).join("")}</select></label>
     </div>
     <div class="hint"><a href="?test=${Math.floor(Math.random() * 1e6) + 2}">New fake votes</a> · <a href="/app/count.html?test">Ballot-by-ballot count</a> · <a href="/app/#admin">Back to Admin</a></div>`;
   bar.addEventListener("change", (e) => {
     if (e.target.dataset.final !== undefined) explorer.setFinal(e.target.checked);
+    if (e.target.dataset.you !== undefined) {
+      you = Number(e.target.value);
+      draw();
+    }
   });
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
