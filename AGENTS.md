@@ -13,6 +13,9 @@ time to score from 1 to 10. Results are counted several ways and published.
 - `public/app/`: the guest app (Lineup, Info, Vote, Results, Admin tabs).
 - `public/results/`: results explorer. Uses `/api/results` when logged in,
   otherwise `/pub/results`.
+  The page is a Cheese / Not cheese / Combined tab, a "Rank pizzas by"
+  dropdown that orders the Everyone's scores table, then fun facts and
+  collapsed method tables.
 - `public/assets/tally.js`: counting methods (average, most firsts, instant
   runoff, STV podium, Schulze head-to-head, Borda, fullness-adjusted).
   `needle.js` simulates win chances from a partial count.

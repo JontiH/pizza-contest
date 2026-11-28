@@ -90,8 +90,8 @@ function draw() {
     const valueKey = a.values[method] ? method : "average";
     const val = a.values[valueKey];
     const scale = {
-      average: (v) => (v - 1) / 9,
-      adjusted: (v) => (v - 1) / 9,
+      average: (v) => v / 10,
+      adjusted: (v) => v / 10,
       borda: (v) => v,
       firsts: (v) => v / Math.max(1, counted),
     }[valueKey];
