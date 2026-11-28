@@ -92,9 +92,17 @@ slice ahead of time (`tastings.queued = 1`, shown as a line in the corner of
 the slice card) so guests can heat it while eating the current one. The Vote
 tab has a "Your scores" menu to edit earlier scores and notes inline. Admin > Pizzas
 "Mark out" (`finished_at`) takes a pizza out of rotation and drops it from
-anyone's up next. Admin > "Try vote mode (test)" runs the Vote tab on fake
-pizzas entirely in the browser (`public/app/sandbox.js`), so nothing touches
-the database.
+anyone's up next. Admin > "Try vote mode (test)" runs the Vote tab on the
+real lineup (all pizzas treated as on the table) entirely in the browser
+(`public/app/sandbox.js`), so nothing touches the database.
+`/results/?test` shows the results explorer on made-up votes
+(`public/assets/fakedata.js`) with buttons to add votes as they would arrive.
+
+Guest status and pizza status are independent. A guest is not here yet,
+checked in, or not showing (`users.no_show`). A pizza is here (`arrived_at`,
+which also gives it its box number) and then possibly out (`finished_at`,
+only while here). Checking a guest in does not put their pizza on the table;
+only pizzas that are here and not out are handed out.
 
 ## Cloudflare
 

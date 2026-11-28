@@ -91,7 +91,7 @@ function renderMain() {
     ["lineup", "Lineup", true],
     ["info", "Info", true],
     ["vote", "Vote", me.phase !== "signup" || !!sandbox],
-    ["results", "Results", ["closed", "revealed"].includes(me.phase)],
+    ["results", "Results", ["closed", "revealed"].includes(me.phase) || !!sandbox],
     ...(me.admin ? [["admin", "Admin", true]] : []),
   ];
   if (!tabs.some(([k, , on]) => k === tab && on)) tab = "lineup";
@@ -424,7 +424,7 @@ async function renderTaste() {
 
 const sandboxBanner = () =>
   sandbox
-    ? `<div class="card sandbox-banner row"><span class="grow"><strong>Test mode.</strong> Fake pizzas, nothing is saved. Reloading also exits.</span><button class="small secondary" data-act="exit-sandbox">Exit</button></div>`
+    ? `<div class="card sandbox-banner row"><span class="grow"><strong>Test mode.</strong> The whole lineup is on the table, nothing is saved. Reloading also exits.</span><button class="small secondary" data-act="exit-sandbox">Exit</button></div>`
     : "";
 
 const upNextText = (t) => (t.next ? `<span>Up next:</span><strong>${esc(t.next.restaurant)}</strong>` : "");
@@ -444,9 +444,10 @@ async function refreshUpNext(pizzaId) {
 
 function renderResultsLinks() {
   $("#pane").innerHTML = `
+    ${sandboxBanner()}
     <div class="card stack">
       <h2 style="margin-top:0">Results</h2>
-      <a class="button" href="/results/">Open the results explorer</a>
+      <a class="button" href="/results/${sandbox ? "?test" : ""}">Open the results explorer${sandbox ? " (made-up ballots)" : ""}</a>
     </div>`;
 }
 
@@ -478,7 +479,7 @@ async function renderAdmin() {
     <p class="row">
       <label><input type="checkbox" data-act-change="allow-skip" ${a.settings.allow_skip === "1" ? "checked" : ""}> Let voters skip a pizza for now</label>
     </p>
-    <p class="row"><a href="/results/">Preview results (admin only)</a> · <button class="small secondary" data-act="start-sandbox">Try vote mode (test)</button></p>
+    <p class="row"><a href="/results/">Preview results (admin only)</a> · <button class="small secondary" data-act="start-sandbox">Try vote mode (test)</button> · <a href="/results/?test">Try results (test)</a></p>
 
     <details class="card info-edit" ${a.settings.info_address ? "" : "open"}>
       <summary><strong>Edit info</strong> <span class="hint">(the Info tab, approved guests only)</span></summary>
@@ -516,9 +517,10 @@ async function renderAdmin() {
           (u) => `<tr>
             <td>${esc(u.name)}${u.status === "rejected" ? ` <span class="badge">rejected</span>` : ""}</td>
             <td class="hint">${esc(u.email)}</td>
-            <td>${
+            <td class="row">${
               u.status === "approved"
-                ? `<button class="small ${u.checked_in ? "on" : "secondary"}" data-checkin="${u.id}" data-value="${!u.checked_in}">${u.checked_in ? "Checked in" : "Check in"}</button>`
+                ? `<button class="small ${u.checked_in ? "on" : "secondary"}" data-checkin="${u.id}" data-value="${!u.checked_in}">${u.checked_in ? "Checked in" : "Check in"}</button>
+                   <button class="small ${u.no_show ? "on" : "secondary"}" data-noshow="${u.id}" data-value="${!u.no_show}">${u.no_show ? "Not showing" : "Not coming?"}</button>`
                 : ""
             }</td>
             <td>${u.scored}</td>
@@ -532,7 +534,7 @@ async function renderAdmin() {
         )
         .join("")}
     </table></div>
-    <p class="hint">Checking someone in puts their pizza on the table and gives it the next box number.</p>
+    <p class="hint">Check-in and not showing only affect the guest. A pizza goes on the table (and gets its box number) with its own Arrived button below.</p>
 
     <h2>Pizzas (${a.pizzas.length})</h2>
     <div class="scroll"><table class="admin-table">
@@ -684,7 +686,7 @@ view.addEventListener("click", async (e) => {
       $(".scored-list", el.parentElement).hidden = !scoresOpen;
       return;
     } else if (d.act === "start-sandbox") {
-      sandbox = newSandbox();
+      sandbox = newSandbox((await api("GET", "/api/board")).pizzas);
       tab = "vote";
       return renderMain();
     } else if (d.act === "exit-sandbox") {
@@ -706,6 +708,8 @@ view.addEventListener("click", async (e) => {
       await api("DELETE", `/api/admin/users/${d.deleteUser}`);
     } else if (d.checkin) {
       await api("POST", `/api/admin/users/${d.checkin}`, { checked_in: d.value === "true" });
+    } else if (d.noshow) {
+      await api("POST", `/api/admin/users/${d.noshow}`, { no_show: d.value === "true" });
     } else if (d.pizza) {
       await api("POST", `/api/admin/pizzas/${d.pizza}`, { [d.field]: d.value === "true" });
     } else if (d.fixLocation) {

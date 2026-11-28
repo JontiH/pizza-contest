@@ -1,15 +1,18 @@
 // Admin-only practice run of the Vote tab. Everything stays in the browser:
 // fake pizzas, no API calls, nothing reaches the real tastings or results.
-const KINDS = ["", "Pepperoni", "", "Mushroom", "Margherita", "Hawaiian"];
+const FAKE = ["", "Pepperoni", "", "Mushroom", "Margherita", "Hawaiian"];
 
-export function newSandbox(count = 6) {
-  const pizzas = KINDS.slice(0, count).map((kind, i) => ({
-    pizza_id: i + 1,
-    box: i + 1,
-    restaurant: `Test Pizzeria ${String.fromCharCode(65 + i)}`,
-    kind,
-    category: kind ? "non_platonic" : "platonic",
-  }));
+// lineup: pizzas from /api/board. Every one counts as on the table.
+export function newSandbox(lineup = null) {
+  const pizzas = lineup?.length
+    ? lineup.map((p, i) => ({ pizza_id: p.id, box: p.box ?? i + 1, restaurant: p.restaurant, kind: p.kind, category: p.category }))
+    : FAKE.map((kind, i) => ({
+        pizza_id: i + 1,
+        box: i + 1,
+        restaurant: `Test Pizzeria ${String.fromCharCode(65 + i)}`,
+        kind,
+        category: kind ? "non_platonic" : "platonic",
+      }));
   const s = { pizzas, scored: [], current: null, next: null, skipped: new Set() };
   advance(s);
   return s;

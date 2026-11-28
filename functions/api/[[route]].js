@@ -148,7 +148,7 @@ async function board(ctx) {
     ctx.env.DB.prepare(
       `SELECT u.name, u.checked_in_at IS NOT NULL AS checked_in,
               EXISTS (SELECT 1 FROM pizzas p WHERE p.bringer_id = u.id) AS bringing
-         FROM users u WHERE u.status = 'approved' ORDER BY lower(u.name)`
+         FROM users u WHERE u.status = 'approved' AND u.no_show = 0 ORDER BY lower(u.name)`
     ),
   ]);
   return {
@@ -311,7 +311,7 @@ async function admin(ctx, method, path) {
   if (path === "" && method === "GET") {
     const [users, pizzas] = await env.DB.batch([
       env.DB.prepare(
-        `SELECT u.id, u.email, u.name, u.status, u.checked_in_at IS NOT NULL AS checked_in, u.created_at,
+        `SELECT u.id, u.email, u.name, u.status, u.checked_in_at IS NOT NULL AS checked_in, u.no_show, u.created_at,
                 (SELECT COUNT(*) FROM tastings t WHERE t.user_id = u.id AND t.score IS NOT NULL) AS scored
            FROM users u ORDER BY u.status = 'pending' DESC, lower(u.name)`
       ),
@@ -323,7 +323,7 @@ async function admin(ctx, method, path) {
     ]);
     return json({
       settings: ctx.settings,
-      users: users.results.map((u) => ({ ...u, checked_in: !!u.checked_in })),
+      users: users.results.map((u) => ({ ...u, checked_in: !!u.checked_in, no_show: !!u.no_show })),
       pizzas: pizzas.results.map((p) => ({ ...p, champion: !!p.champion })),
     });
   }
@@ -339,12 +339,17 @@ async function admin(ctx, method, path) {
         await notifyApproved(env, ctx.request, before.name, before.email);
       }
     }
+    // Checked in, not showing and "not here yet" are exclusive. None of them
+    // touch the guest's pizza; that has its own Arrived and Out buttons.
     if (body.checked_in === true) {
-      await env.DB.prepare(`UPDATE users SET checked_in_at = COALESCE(checked_in_at, datetime('now')) WHERE id = ?`).bind(id).run();
-      const { results } = await env.DB.prepare(`SELECT id FROM pizzas WHERE bringer_id = ? AND arrived_at IS NULL`).bind(id).all();
-      for (const p of results) await arrive(env, p.id);
+      await env.DB.prepare(`UPDATE users SET checked_in_at = COALESCE(checked_in_at, datetime('now')), no_show = 0 WHERE id = ?`).bind(id).run();
     } else if (body.checked_in === false) {
       await env.DB.prepare(`UPDATE users SET checked_in_at = NULL WHERE id = ?`).bind(id).run();
+    }
+    if (body.no_show === true) {
+      await env.DB.prepare(`UPDATE users SET no_show = 1, checked_in_at = NULL WHERE id = ?`).bind(id).run();
+    } else if (body.no_show === false) {
+      await env.DB.prepare(`UPDATE users SET no_show = 0 WHERE id = ?`).bind(id).run();
     }
     return json({ ok: true });
   }
@@ -384,8 +389,12 @@ async function admin(ctx, method, path) {
     else Object.assign(f, parseLocation(body) || {});
     await updatePizza(env, id, f);
     if (body.arrived === true) await arrive(env, id);
-    if (body.arrived === false) await env.DB.prepare(`UPDATE pizzas SET arrived_at = NULL WHERE id = ?`).bind(id).run();
-    if (body.finished === true) await env.DB.prepare(`UPDATE pizzas SET finished_at = datetime('now') WHERE id = ?`).bind(id).run();
+    // A pizza that isn't here can't be out, so un-arriving clears out too.
+    if (body.arrived === false) await env.DB.prepare(`UPDATE pizzas SET arrived_at = NULL, finished_at = NULL WHERE id = ?`).bind(id).run();
+    if (body.finished === true) {
+      const { meta } = await env.DB.prepare(`UPDATE pizzas SET finished_at = datetime('now') WHERE id = ? AND arrived_at IS NOT NULL`).bind(id).run();
+      if (!meta.changes) throw bad("it isn't here yet, so it can't be out");
+    }
     // Nobody should be told to heat a pizza that's gone; they get a new up-next on their next load.
     if (body.finished === true || body.arrived === false) await env.DB.prepare(`DELETE FROM tastings WHERE pizza_id = ? AND queued = 1`).bind(id).run();
     if (body.finished === false) await env.DB.prepare(`UPDATE pizzas SET finished_at = NULL WHERE id = ?`).bind(id).run();

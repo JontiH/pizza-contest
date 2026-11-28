@@ -10,18 +10,20 @@ function heat(s) {
   return `hsl(${hue} 75% ${88 - 30 * Math.abs(t - 0.5)}%)`;
 }
 
-export function mountExplorer(root, data, { official = "" } = {}) {
-  const cats = Object.keys(CATEGORY_LABELS).filter((c) => data.pizzas.some((p) => p.category === c));
-  if (!cats.length || !data.scores.length) {
-    root.innerHTML = `<p class="empty">No scores yet.</p>`;
-    return;
-  }
-  const pizza = new Map(data.pizzas.map((p) => [p.id, p]));
-  const voter = new Map(data.voters.map((v) => [v.id, v]));
+// Returns { update(newData) } to redraw in place as ballots arrive.
+export function mountExplorer(root, initial, { official = "" } = {}) {
+  let data = initial;
+  let cats, pizza, voter, cat;
+  const load = () => {
+    cats = Object.keys(CATEGORY_LABELS).filter((c) => data.pizzas.some((p) => p.category === c));
+    pizza = new Map(data.pizzas.map((p) => [p.id, p]));
+    voter = new Map(data.voters.map((v) => [v.id, v]));
+    if (!cats.includes(cat)) cat = cats[0];
+  };
+  load();
   const pname = (id) => esc(pizza.get(id)?.restaurant ?? "?");
   const v1 = (id) => (pizza.get(id)?.champion ? medal("v1", pizza.get(id).placing) : "");
   const headline = official || "average";
-  let cat = cats[0];
 
   const dialog = document.createElement("dialog");
   document.body.append(dialog);
@@ -30,6 +32,10 @@ export function mountExplorer(root, data, { official = "" } = {}) {
   });
 
   function render() {
+    if (!cats.length || !data.scores.length) {
+      root.innerHTML = `<p class="empty">No scores yet.</p>`;
+      return;
+    }
     const a = analyse(data, cat);
     const ranked = a.rankings[headline].filter((id) => a.stats.get(id).n > 0);
     // This contest's podium under the headline method, shown as v2 medals.
@@ -230,6 +236,13 @@ export function mountExplorer(root, data, { official = "" } = {}) {
   root.addEventListener("click", onClick);
   dialog.addEventListener("click", onClick);
   render();
+  return {
+    update(next) {
+      data = next;
+      load();
+      render();
+    },
+  };
 }
 
 function dotPlot(points) {

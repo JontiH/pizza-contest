@@ -1,5 +1,6 @@
 import { Needle, winChances } from "/assets/needle.js";
 import { CATEGORY_LABELS, METHODS, analyse } from "/assets/tally.js";
+import { fakeResults } from "/assets/fakedata.js";
 import { $, api, esc, fmt } from "/assets/ui.js";
 
 const status = $("#status");
@@ -24,8 +25,10 @@ function shuffle(xs) {
 }
 
 async function start() {
+  if (new URLSearchParams(location.search).has("test")) $('a[href="/results/"]').href = "/results/?test";
   try {
-    data = await api("GET", "/api/results");
+    const test = new URLSearchParams(location.search).get("test");
+    data = test !== null ? fakeResults(Number(test) || 1) : await api("GET", "/api/results");
   } catch (e) {
     status.textContent = e.status === 401 ? "Log in on the main page first." : e.message;
     $(".controls").hidden = true;
