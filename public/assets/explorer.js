@@ -34,6 +34,11 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
 
   // Election-night style results box: one row per pizza in the chosen
   // method's order, a colour stripe each, and a bar for how much is counted.
+  const byLink = (name) => {
+    const v = name && data.voters.find((x) => x.name === name);
+    return v ? `<button class="link" data-voter="${v.id}">${esc(name)}</button>` : esc(name || "");
+  };
+
   function raceCard(a, order, method, cat, final) {
     const vals = valuesFor(a, method);
     const nums = order.map((id) => vals.get(id)).filter(Number.isFinite);
@@ -57,7 +62,7 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
               return `<tr class="${i === 0 ? "lead" : ""}" style="--c:${colourOf(id)}">
                 <td><button class="link" data-pizza="${id}">${pname(id)}</button>${i === 0 && final ? " ✓" : ""}
                   <span class="race-bar"><span style="width:${width}%"></span></span></td>
-                <td class="by">${esc(pizza.get(id).bringer || "")}</td>
+                <td class="by">${byLink(pizza.get(id).bringer)}</td>
                 <td class="num">${a.stats.get(id).n}</td>
                 <td class="num strong">${fmtValue(method, v)}</td>
               </tr>`;
@@ -304,8 +309,9 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
     if (!dialog.open) dialog.showModal();
   }
 
+  // A tap anywhere in a table cell counts as tapping the link inside it.
   const onClick = (e) => {
-    const b = e.target.closest("button");
+    const b = e.target.closest("button") || e.target.closest("td, th")?.querySelector("button[data-pizza], button[data-voter]");
     if (!b) return;
     if (b.dataset.pickMethod) {
       method = b.dataset.pickMethod;

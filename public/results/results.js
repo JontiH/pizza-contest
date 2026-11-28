@@ -25,10 +25,21 @@ async function testData(seed) {
     board = await api("GET", "/api/board");
   } catch {}
   const lineup = board?.pizzas.length ? board.pizzas : null;
-  return { full: fakeResults(seed, lineup, board ? Math.max(12, board.guests.length) : 22), realLineup: !!lineup, test: true };
+  const me = board ? await api("GET", "/api/me").catch(() => null) : null;
+  let mine = [];
+  try {
+    mine = JSON.parse(sessionStorage.getItem("sandboxScores") || "[]");
+  } catch {}
+  const you = me?.name ? { name: me.name, scores: lineup ? mine : [] } : null;
+  return {
+    full: fakeResults(seed, lineup, board ? Math.max(12, board.guests.length) : 22, you),
+    realLineup: !!lineup,
+    ownVotes: !!you?.scores.length,
+    test: true,
+  };
 }
 
-function mountTest({ full, realLineup }) {
+function mountTest({ full, realLineup, ownVotes }) {
   let shown = 0;
   let you = full.voters[0].id;
   let timer = null;
@@ -55,7 +66,8 @@ function mountTest({ full, realLineup }) {
   };
 
   bar.innerHTML = `
-    <div><strong>Test mode.</strong> ${realLineup ? "Today's real lineup" : "Made-up pizzas"}, made-up guests and votes. Nothing is saved.</div>
+    <div><strong>Test mode.</strong> ${realLineup ? "Today's real lineup" : "Made-up pizzas"}, made-up guests and votes. Nothing is saved.
+      ${ownVotes ? `${esc(full.voters[0].name)}'s votes are the ones you cast in Try vote mode.` : `${esc(full.voters[0].name)} gets made-up votes; cast your own in Admin > Try vote mode (test).`}</div>
     <div data-count class="hint"></div>
     <div class="row">
       <button class="small" data-add="1">+1 vote</button>

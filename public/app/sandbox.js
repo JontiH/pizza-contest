@@ -44,17 +44,22 @@ export function sandboxTasting(s, allowSkip) {
   };
 }
 
+// The test results page reads these as the viewer's own ballot.
+const save = (s) => sessionStorage.setItem("sandboxScores", JSON.stringify(s.scored.map((o) => ({ p: o.pizza_id, s: o.score, note: o.note, pos: o.position }))));
+
 export function sandboxScore(s, pizzaId, score, note) {
   if (s.current?.pizza_id === pizzaId) {
     s.scored.push({ ...s.current, score: Number(score), note: note || "" });
     s.current = null;
     advance(s);
+    save(s);
     return;
   }
   const row = s.scored.find((x) => x.pizza_id === pizzaId);
   if (!row) return;
   if (score !== undefined) row.score = Number(score);
   if (note !== undefined) row.note = note;
+  save(s);
 }
 
 export function sandboxSkip(s) {

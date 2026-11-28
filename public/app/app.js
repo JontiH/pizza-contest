@@ -687,6 +687,7 @@ view.addEventListener("click", async (e) => {
       return;
     } else if (d.act === "start-sandbox") {
       sandbox = newSandbox((await api("GET", "/api/board")).pizzas);
+      sessionStorage.removeItem("sandboxScores");
       tab = "vote";
       return renderMain();
     } else if (d.act === "exit-sandbox") {
