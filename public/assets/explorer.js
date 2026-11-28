@@ -9,10 +9,12 @@ function heat(s) {
   return `hsl(${hue} 75% ${88 - 30 * Math.abs(t - 0.5)}%)`;
 }
 
-// Returns { update(newData) } to redraw in place as ballots arrive.
-export function mountExplorer(root, initial, { official = "" } = {}) {
+// final: voting is over, so the podium and worst pizza lead the page.
+// Returns { update(newData), setFinal(bool) } to redraw in place.
+export function mountExplorer(root, initial, { official = "", final = false } = {}) {
   let data = initial;
   let cats, pizza, voter, cat;
+  let pickerOpen = false;
   let method = METHODS.some((m) => m.key === official) ? official : "average";
   const load = () => {
     cats = Object.keys(CATEGORY_LABELS).filter((c) => data.pizzas.some((p) => p.category === c));
@@ -29,6 +31,49 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
   dialog.addEventListener("click", (e) => {
     if (e.target === dialog || e.target.closest("[data-close]")) dialog.close();
   });
+
+  // Election-night style results box: one row per pizza in the chosen
+  // method's order, a colour stripe each, and a bar for how much is counted.
+  function raceCard(a, order, method, cat, final) {
+    const vals = valuesFor(a, method);
+    const nums = order.map((id) => vals.get(id)).filter(Number.isFinite);
+    const top = Math.max(...nums, 0) || 1;
+    const catPizzas = a.ids.length;
+    const tasted = [...a.ballots.values()].reduce((n, b) => n + b.size, 0);
+    const possible = a.ballots.size * catPizzas;
+    const pct = possible ? Math.round((tasted / possible) * 100) : 0;
+    const title = cat === "all" ? "Every pizza" : CATEGORY_LABELS[cat];
+    const m = METHODS.find((x) => x.key === method);
+    return `
+      <section class="race-card">
+        <div class="race-stripe">${order.slice(0, 6).map((id) => `<span style="background:${colourOf(id)}"></span>`).join("")}</div>
+        <h2 class="race-title"><span class="race-logo">🍕</span> 2026 ${esc(title)}</h2>
+        <table class="race-table">
+          <thead><tr><th>Pizza</th><th class="by">Brought by</th><th class="num">Scores</th><th class="num">${esc(m.short)}</th></tr></thead>
+          <tbody>${order
+            .map((id, i) => {
+              const v = vals.get(id);
+              const width = Number.isFinite(v) ? Math.max(2, (v / top) * 100) : 0;
+              return `<tr class="${i === 0 ? "lead" : ""}" style="--c:${colourOf(id)}">
+                <td><button class="link" data-pizza="${id}">${pname(id)}</button>${i === 0 && final ? " ✓" : ""}
+                  <span class="race-bar"><span style="width:${width}%"></span></span></td>
+                <td class="by">${esc(pizza.get(id).bringer || "")}</td>
+                <td class="num">${a.stats.get(id).n}</td>
+                <td class="num strong">${fmtValue(method, v)}</td>
+              </tr>`;
+            })
+            .join("")}</tbody>
+        </table>
+        <div class="race-foot">
+          <span><span class="dot ${final ? "final" : "live"}"></span>${final ? "Final" : "Counting"}</span>
+          <span class="hint">${tasted} ${tasted === 1 ? "score" : "scores"} from ${a.ballots.size} ${a.ballots.size === 1 ? "person" : "people"}</span>
+        </div>
+        <div class="race-progress">
+          <span class="hint">${pct >= 95 && pct < 100 ? ">95" : pct}% of slices tasted</span>
+          <span class="track"><span style="width:${pct}%"></span></span>
+        </div>
+      </section>`;
+  }
 
   function render() {
     if (!cats.length || !data.scores.length) {
@@ -50,15 +95,51 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
     const tabs = cats.length > 1 ? [...cats, "all"] : [];
     const m = METHODS.find((x) => x.key === method);
 
+    const worstCard =
+      a.worst !== null
+        ? `<button class="card fact worst" data-pizza="${a.worst}">
+            <span class="medal">🗑️</span>
+            <span><strong>Worst pizza: ${pname(a.worst)}</strong><br>
+            <span class="hint">Lowest score for ${fmt(a.values.worsts.get(a.worst), a.values.worsts.get(a.worst) % 1 ? 1 : 0)} ${
+              a.values.worsts.get(a.worst) === 1 ? "person" : "people"
+            } · averaged ${fmt(a.stats.get(a.worst).mean, 2)}</span></span>
+          </button>`
+        : "";
+    const podium = `
+      <section class="podium">
+        ${order
+          .slice(0, 3)
+          .map(
+            (id, i) => `<button class="step step-${i + 1}" data-pizza="${id}">
+              <span class="medal">${["🥇", "🥈", "🥉"][i]}</span>
+              <strong>${pname(id)}</strong>
+              <span class="hint">${esc(pizza.get(id).kind)}</span>
+              <span>${badges(id)}</span>
+              <span class="big">${fmt(a.stats.get(id).mean, 2)}</span>
+              <span class="hint">average</span>
+            </button>`
+          )
+          .join("")}
+      </section>
+      ${worstCard}`;
+
     root.innerHTML = `
       ${tabs.length ? `<nav class="tabs">${tabs.map((c) => `<button data-cat="${c}" class="${c === cat ? "active" : ""}">${c === "all" ? "Combined" : CATEGORY_LABELS[c]}</button>`).join("")}</nav>` : ""}
 
-      <div class="card method-pick">
-        <label class="field">Rank pizzas by
-          <select data-method>${METHODS.map((x) => `<option value="${x.key}" ${x.key === method ? "selected" : ""}>${x.label}${x.key === official ? " (official)" : ""}</option>`).join("")}</select>
-        </label>
-        <p class="hint">${esc(m.blurb)}</p>
-      </div>
+      ${final ? podium : ""}
+
+      <details class="card method-pick" ${pickerOpen ? "open" : ""}>
+        <summary><span class="hint">Rank pizzas by</span> <strong>${m.label}</strong>${method === official ? ` <span class="badge">official</span>` : ""}</summary>
+        <ul class="method-list">${METHODS.map(
+          (x) => `<li><button class="method-opt ${x.key === method ? "on" : ""}" data-pick-method="${x.key}">
+            <strong>${x.label}${x.key === official ? ` <span class="badge">official</span>` : ""}</strong>
+            <span>${esc(x.blurb)}</span>
+          </button></li>`
+        ).join("")}</ul>
+      </details>
+
+      ${raceCard(a, order, method, cat, final)}
+
 
       <h2>Everyone's scores</h2>
       <p class="hint">Pizzas run left to right in ${m.label.toLowerCase()} order. Tap any pizza or person for details.</p>
@@ -81,17 +162,7 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
       <div class="facts">${funFacts(a, voter, pname)
         .map((f) => `<div class="card fact">${f}</div>`)
         .join("")}
-        ${
-          a.worst !== null
-            ? `<button class="card fact worst" data-pizza="${a.worst}">
-                <span class="medal">🗑️</span>
-                <span><strong>Worst pizza: ${pname(a.worst)}</strong><br>
-                <span class="hint">Lowest score for ${fmt(a.values.worsts.get(a.worst), a.values.worsts.get(a.worst) % 1 ? 1 : 0)} ${
-                  a.values.worsts.get(a.worst) === 1 ? "person" : "people"
-                } · averaged ${fmt(a.stats.get(a.worst).mean, 2)}</span></span>
-              </button>`
-            : ""
-        }
+        ${final ? "" : worstCard}
         <div class="card fact fullness">
           <strong>The fullness effect:</strong>
           ${
@@ -197,18 +268,20 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
   const onClick = (e) => {
     const b = e.target.closest("button");
     if (!b) return;
-    if (b.dataset.cat) {
+    if (b.dataset.pickMethod) {
+      method = b.dataset.pickMethod;
+      pickerOpen = false;
+      render();
+    } else if (b.dataset.cat) {
       cat = b.dataset.cat;
       render();
     } else if (b.dataset.pizza) pizzaDialog(Number(b.dataset.pizza));
     else if (b.dataset.voter) voterDialog(Number(b.dataset.voter));
   };
   root.addEventListener("click", onClick);
-  root.addEventListener("change", (e) => {
-    if (e.target.dataset.method === undefined) return;
-    method = e.target.value;
-    render();
-  });
+  root.addEventListener("toggle", (e) => {
+    if (e.target.classList?.contains("method-pick")) pickerOpen = e.target.open;
+  }, true);
   dialog.addEventListener("click", onClick);
   render();
   return {
@@ -217,10 +290,32 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
       load();
       render();
     },
+    setFinal(on) {
+      final = on;
+      render();
+    },
   };
 }
 
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+const PALETTE = ["#1f5fd1", "#d22f27", "#8a3ffc", "#e07b00", "#1a9e5a", "#c2187a", "#00838f", "#6d4c41", "#5c6bc0", "#9e9d24", "#ef5350", "#26a69a"];
+const colourOf = (id) => PALETTE[(id - 1) % PALETTE.length];
+
+// The number each method ranks by, for the results box.
+function valuesFor(a, method) {
+  if (method === "average") return new Map(a.ids.map((id) => [id, a.stats.get(id).mean]));
+  if (method === "stv") return new Map(a.ids.map((id) => [id, a.rankings.stv.includes(id) ? 3 - a.rankings.stv.indexOf(id) : NaN]));
+  return a.values[method] ?? new Map();
+}
+
+function fmtValue(method, v) {
+  if (!Number.isFinite(v)) return "–";
+  if (method === "stv") return ordinal(4 - v);
+  if (method === "borda") return `${Math.round(v * 100)}%`;
+  if (method === "firsts") return fmt(v, v % 1 ? 1 : 0);
+  return fmt(v, 2);
+}
 
 // Short, plain-language facts about the current tab. Each entry is HTML.
 function funFacts(a, voter, pname) {

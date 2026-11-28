@@ -3,11 +3,11 @@
 // A voter's ranking is implied by their scores; equal scores are ties.
 
 export const METHODS = [
-  { key: "average", label: "Average score", blurb: "Add up everyone's scores and divide by the number of people who tried it." },
-  { key: "firsts", label: "Most firsts", blurb: "Counts how many people gave it their top score. If someone's top score is a tie, the point is split." },
-  { key: "stv", label: "STV podium", blurb: "Picks a top 3 in rounds. A pizza that gets more votes than it needs to win passes the extra on to those voters' next favourites, and the weakest pizza is dropped when nobody wins. Only the top 3 get a rank." },
-  { key: "borda", label: "Borda", blurb: "Each score earns points for every other pizza that person scored lower, scaled so tasting fewer pizzas doesn't count against you." },
-  { key: "adjusted", label: "Fullness-adjusted", blurb: "The average after taking out the effect of slice order (later slices score lower) and of harsh or generous scorers." },
+  { key: "average", short: "Avg", label: "Average score", blurb: "Add up everyone's scores and divide by the number of people who tried it." },
+  { key: "firsts", short: "Firsts", label: "Most firsts", blurb: "Counts how many people gave it their top score. If someone's top score is a tie, the point is split." },
+  { key: "stv", short: "Place", label: "STV podium", blurb: "Picks a top 3 in rounds. A pizza that gets more votes than it needs to win passes the extra on to those voters' next favourites, and the weakest pizza is dropped when nobody wins. Only the top 3 get a rank." },
+  { key: "borda", short: "Beat", label: "Borda", blurb: "Each score earns points for every other pizza that person scored lower, scaled so tasting fewer pizzas doesn't count against you." },
+  { key: "adjusted", short: "Adj. avg", label: "Fullness-adjusted", blurb: "The average after taking out the effect of slice order (later slices score lower) and of harsh or generous scorers." },
 ];
 
 export const CATEGORY_LABELS = { platonic: "Cheese", non_platonic: "Not cheese" };

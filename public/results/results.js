@@ -62,8 +62,12 @@ function mountTest({ full, realLineup }) {
       <button class="small secondary" data-auto></button>
       <button class="small secondary" data-all>All</button>
       <button class="small link" data-reset>Reset</button>
+      <label class="small"><input type="checkbox" data-final> Voting finished</label>
     </div>
     <div class="hint"><a href="?test=${Math.floor(Math.random() * 1e6) + 2}">New fake votes</a> · <a href="/app/count.html?test">Ballot-by-ballot count</a> · <a href="/app/#admin">Back to Admin</a></div>`;
+  bar.addEventListener("change", (e) => {
+    if (e.target.dataset.final !== undefined) explorer.setFinal(e.target.checked);
+  });
   bar.addEventListener("click", (e) => {
     const b = e.target.closest("button");
     if (!b) return;
@@ -85,7 +89,7 @@ function mountTest({ full, realLineup }) {
 load()
   .then((data) => {
     if (data.test) return mountTest(data);
-    mountExplorer(root, data, { official: data.officialMethod });
+    mountExplorer(root, data, { official: data.officialMethod, final: !data.preview });
     if (data.preview) {
       const note = document.createElement("p");
       note.className = "card preview-note";
