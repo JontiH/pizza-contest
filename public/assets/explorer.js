@@ -13,12 +13,12 @@ function heat(s) {
 export function mountExplorer(root, initial, { official = "" } = {}) {
   let data = initial;
   let cats, pizza, voter, cat;
-  let method = official || "average";
+  let method = METHODS.some((m) => m.key === official) ? official : "average";
   const load = () => {
     cats = Object.keys(CATEGORY_LABELS).filter((c) => data.pizzas.some((p) => p.category === c));
     pizza = new Map(data.pizzas.map((p) => [p.id, p]));
     voter = new Map(data.voters.map((v) => [v.id, v]));
-    if (!cats.includes(cat)) cat = cats[0];
+    if (cat !== "all" && !cats.includes(cat)) cat = cats[0];
   };
   load();
   const pname = (id) => esc(pizza.get(id)?.restaurant ?? "?");
@@ -35,7 +35,7 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
       root.innerHTML = `<p class="empty">No scores yet.</p>`;
       return;
     }
-    const a = analyse(data, cat);
+    const a = analyse(data, cat === "all" ? null : cat);
     const voted = a.ids.filter((id) => a.stats.get(id).n > 0);
     // Elected-only methods (STV) rank just a few; the rest follow by average.
     const order = [...a.rankings[method].filter((id) => voted.includes(id))];
@@ -47,11 +47,11 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
     const voters = [...a.ballots.keys()].sort((x, y) => voter.get(x).name.localeCompare(voter.get(y).name));
     const cols = order;
     const slope = a.slope;
-    const tabs = cats.length > 1 ? cats : [];
+    const tabs = cats.length > 1 ? [...cats, "all"] : [];
     const m = METHODS.find((x) => x.key === method);
 
     root.innerHTML = `
-      ${tabs.length ? `<nav class="tabs">${tabs.map((c) => `<button data-cat="${c}" class="${c === cat ? "active" : ""}">${CATEGORY_LABELS[c]}</button>`).join("")}</nav>` : ""}
+      ${tabs.length ? `<nav class="tabs">${tabs.map((c) => `<button data-cat="${c}" class="${c === cat ? "active" : ""}">${c === "all" ? "Combined" : CATEGORY_LABELS[c]}</button>`).join("")}</nav>` : ""}
 
       <div class="card method-pick">
         <label class="field">Rank pizzas by
@@ -76,7 +76,8 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
         <tr class="avg"><th>Average</th>${cols.map((id) => `<td>${fmt(a.stats.get(id).mean, 2)}</td>`).join("")}</tr>
       </table></div>
 
-      <h2>Fun facts</h2>
+      <details class="more">
+      <summary>Fun facts</summary>
       <div class="facts">${funFacts(a, voter, pname)
         .map((f) => `<div class="card fact">${f}</div>`)
         .join("")}
@@ -100,6 +101,7 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
           }
         </div>
       </div>
+      </details>
 
       <details class="more">
         <summary>How every method ranks each pizza</summary>
@@ -119,41 +121,6 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
             )
             .join("")}
         </table></div>
-        ${a.condorcet ? `<p><strong>${pname(a.condorcet)}</strong> beat every other pizza one on one.</p>` : `<p class="hint">No pizza beat every other one on one.</p>`}
-      </details>
-
-      <details class="more">
-        <summary>Head to head, match by match</summary>
-        <p class="hint">How many people preferred the row's pizza over the column's, among those who tasted both.</p>
-        <div class="scroll"><table class="h2h">
-          <tr><th></th>${ranked.map((id) => `<th>${pname(id)}</th>`).join("")}</tr>
-          ${ranked
-            .map(
-              (x) => `<tr><th>${pname(x)}</th>${ranked
-                .map((y) => {
-                  if (x === y) return `<td class="none"></td>`;
-                  const w = a.pairwise.get(x).get(y);
-                  const l = a.pairwise.get(y).get(x);
-                  return `<td class="${w > l ? "win" : w < l ? "loss" : ""}">${w}–${l}</td>`;
-                })
-                .join("")}</tr>`
-            )
-            .join("")}
-        </table></div>
-      </details>
-
-      <details class="more">
-        <summary>Instant runoff, round by round</summary>
-        <div class="scroll"><table class="rounds">
-          <tr><th>Round</th>${ranked.map((id) => `<th>${pname(id)}</th>`).join("")}<th></th></tr>
-          ${a.irvRounds
-            .map(
-              (r, i) => `<tr><td>${i + 1}</td>${ranked
-                .map((id) => `<td>${r.tally.has(id) ? fmt(r.tally.get(id), r.tally.get(id) % 1 ? 1 : 0) : ""}</td>`)
-                .join("")}<td>${r.eliminated ? `${pname(r.eliminated)} out` : `${pname(r.winner)} wins`}</td></tr>`
-            )
-            .join("")}
-        </table></div>
       </details>`;
   }
 
@@ -163,7 +130,6 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
     const st = a.stats.get(id);
     const rows = data.scores.filter((o) => o.p === id).sort((x, y) => y.s - x.s);
     const others = a.ids.filter((o) => o !== id && a.stats.get(o).n > 0);
-    const h2hWins = others.filter((o) => a.pairwise.get(id).get(o) > a.pairwise.get(o).get(id)).length;
     dialog.innerHTML = `
       <button class="close secondary small" data-close>Close</button>
       <h2 style="margin-top:0">${p.box ? `#${p.box} ` : ""}${esc(p.restaurant)}</h2>
@@ -177,7 +143,6 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
       </div>
       ${dotPlot(rows.map((o) => ({ s: o.s, label: voter.get(o.v).name })))}
       <p>${st.sd >= 2 ? "People were split on this one." : st.sd <= 0.8 && st.n > 2 ? "Remarkable agreement on this one." : ""}
-        Beat ${h2hWins} of ${others.length} other pizzas head to head.
         ${a.values.worsts.get(id) ? `Lowest score for ${fmt(a.values.worsts.get(id), a.values.worsts.get(id) % 1 ? 1 : 0)} ${a.values.worsts.get(id) === 1 ? "person" : "people"}${id === a.worst ? " 🗑️" : ""}.` : ""}</p>
       <h3>Rank by method</h3>
       <ul class="pills">${METHODS.map((m) => {

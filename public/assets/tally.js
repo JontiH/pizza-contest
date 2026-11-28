@@ -5,9 +5,7 @@
 export const METHODS = [
   { key: "average", label: "Average score", blurb: "Add up everyone's scores and divide by the number of people who tried it." },
   { key: "firsts", label: "Most firsts", blurb: "Counts how many people gave it their top score. If someone's top score is a tie, the point is split." },
-  { key: "irv", label: "Instant runoff", blurb: "Everyone's favourite counts as a vote. The pizza with the fewest is knocked out and its voters move to their next favourite. Repeat until one pizza has more than half." },
   { key: "stv", label: "STV podium", blurb: "Picks a top 3 in rounds. A pizza that gets more votes than it needs to win passes the extra on to those voters' next favourites, and the weakest pizza is dropped when nobody wins. Only the top 3 get a rank." },
-  { key: "schulze", label: "Head-to-head", blurb: "Every pizza plays every other one. In each match-up, whichever pizza more people scored higher (among those who tried both) wins. The pizza that wins the most match-ups is first." },
   { key: "borda", label: "Borda", blurb: "Each score earns points for every other pizza that person scored lower, scaled so tasting fewer pizzas doesn't count against you." },
   { key: "adjusted", label: "Fullness-adjusted", blurb: "The average after taking out the effect of slice order (later slices score lower) and of harsh or generous scorers." },
 ];
