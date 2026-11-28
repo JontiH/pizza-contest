@@ -97,7 +97,7 @@ export function locationFields(data) {
 }
 
 let leaflet = null;
-function loadLeaflet() {
+export function loadLeaflet() {
   if (!leaflet) {
     leaflet = new Promise((resolve, reject) => {
       const css = document.createElement("link");

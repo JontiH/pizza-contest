@@ -31,12 +31,12 @@ function rng(seed) {
 // adds the viewer as voter 0; with no scores they get made-up ones too.
 // Scores come back in the order guests would plausibly submit them
 // (everyone's first slice, then second slices, and so on).
-export function fakeResults(seed = 1, lineup = null, guests = 22, me = null) {
+export function fakeResults(seed = 1, lineup = null, guests = 22, me = null, guestNames = []) {
   const rand = rng(seed);
   const gauss = () => (rand() + rand() + rand() + rand() - 2) * 1.2;
 
   const base = lineup?.length
-    ? lineup.map((p) => ({ id: p.id, restaurant: p.restaurant, kind: p.kind, category: p.category, champion: !!p.champion, placing: p.placing ?? null, bringer: p.bringer ?? "", box: p.box }))
+    ? lineup.map((p) => ({ id: p.id, lat: p.lat ?? null, lon: p.lon ?? null, restaurant: p.restaurant, kind: p.kind, category: p.category, champion: !!p.champion, placing: p.placing ?? null, bringer: p.bringer ?? "", box: p.box }))
     : [
         ...CHEESE.map((restaurant) => ({ restaurant, kind: "", category: "platonic" })),
         ...OTHER.map(([restaurant, kind]) => ({ restaurant, kind, category: "non_platonic" })),
@@ -48,7 +48,8 @@ export function fakeResults(seed = 1, lineup = null, guests = 22, me = null) {
       }));
   const pizzas = base.map((p, i) => ({ ...p, id: p.id ?? i + 1, box: p.box ?? i + 1, quality: 4.5 + rand() * 4 }));
   const quality = new Map(pizzas.map((p) => [p.id, p.quality]));
-  const names = me ? [me.name, ...NAMES.filter((n) => n !== me.name)] : NAMES;
+  const pool = [...new Set([...guestNames, ...NAMES])].filter((n) => n !== me?.name);
+  const names = me ? [me.name, ...pool] : pool;
   const voters = Array.from({ length: Math.max(3, guests) }, (_, id) => ({ id, name: names[id] ?? `Guest ${id + 1}` }));
 
   const scores = [];

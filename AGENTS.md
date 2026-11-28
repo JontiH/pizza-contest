@@ -13,12 +13,17 @@ time to score from 1 to 10. Results are counted several ways and published.
 - `public/app/`: the guest app (Lineup, Info, Vote, Results, Admin tabs).
 - `public/results/`: results explorer. Uses `/api/results` when logged in,
   otherwise `/pub/results`.
-  The page is a Cheese / Not cheese / Combined tab, a podium and worst
-  pizza once voting is over, a "Rank pizzas by" list (each method with its
-  explanation), an election-night style results box, then folding sections: your
-  scores, fun facts about you, everyone's scores, fun facts about everyone,
-  and the method comparison. `/api/results` returns `you` (the viewer's
-  renumbered voter ID) for the personal sections.
+  The page is a Cheese / Not cheese / Combined tab, winner cards and worst
+  pizza once voting is over (`final`), a "Rank pizzas by" list, then an
+  election-night style results box: a needle with simulated win chances,
+  a row per pizza with its photo, the pizza map (one slice per guest,
+  coloured by their favourite) and a Toronto map. Below that, folding
+  sections: your scores, fun facts about you, everyone's scores, fun facts
+  about everyone, and the method comparison. `/api/results` returns `you`
+  (the viewer's renumbered voter ID) and `expectedVoters` (checked-in
+  guests). Admin > "Live results" lets guests see results during tasting.
+  Pizza photos are `public/assets/pizzas/<pizza id>.jpg`, listed in
+  `public/assets/pizzas.js`.
 - `public/assets/tally.js`: counting methods (average, most firsts, instant
   runoff, STV podium, Schulze head-to-head, Borda, fullness-adjusted).
   `needle.js` simulates win chances from a partial count.

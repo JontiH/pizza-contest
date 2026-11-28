@@ -1,4 +1,7 @@
-import { CATEGORY_LABELS, METHODS, agreementLeague, analyse, person } from "./tally.js";
+import { loadLeaflet } from "/app/places.js";
+import { Needle } from "./needle.js";
+import { PHOTOS } from "./pizzas.js";
+import { CATEGORY_LABELS, METHODS, agreementLeague, analyse, person, rank, ballotsFor, stats } from "./tally.js";
 import { $, esc, fmt, medal, ordinal } from "./ui.js";
 
 
@@ -9,9 +12,9 @@ function heat(s) {
   return `hsl(${hue} 75% ${88 - 30 * Math.abs(t - 0.5)}%)`;
 }
 
-// final: voting is over, so the podium and worst pizza lead the page.
-// Returns { update(newData), setFinal(bool) } to redraw in place.
-export function mountExplorer(root, initial, { official = "", final = false } = {}) {
+// data.final: voting is over, so the winners and worst pizza lead the page.
+// Returns { update(newData) } to redraw in place as ballots arrive.
+export function mountExplorer(root, initial, { official = "" } = {}) {
   let data = initial;
   let cats, pizza, voter, cat;
   let pickerOpen = false;
@@ -34,37 +37,148 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
 
   // Election-night style results box: one row per pizza in the chosen
   // method's order, a colour stripe each, and a bar for how much is counted.
-  const byLink = (name) => {
-    const v = name && data.voters.find((x) => x.name === name);
-    return v ? `<button class="link" data-voter="${v.id}">${esc(name)}</button>` : esc(name || "");
-  };
+  const byLink = (name) => (name ? `<button class="link" data-person="${esc(name)}">${esc(name)}</button>` : "");
+  const head = (id, cls = "") =>
+    `<span class="head ${cls}" style="--c:${colourOf(id)}">${PHOTOS.has(id) && !data.fake ? `<img src="/assets/pizzas/${id}.jpg" alt="">` : "🍕"}</span>`;
+
+  // Win chances are a simulation, so they're cached per count and view.
+  let chanceKey = "";
+  let chanceVal = new Map();
+  function chances(cat, method) {
+    const key = `${data.scores.length}|${cat}|${method}|${data.final}`;
+    if (key !== chanceKey) {
+      chanceVal = simulateWins(data, cat === "all" ? null : cat, method, data.final ? 0 : 150);
+      chanceKey = key;
+    }
+    return chanceVal;
+  }
+
+  // Widgets that keep running between redraws are built once and moved
+  // into their slot after each draw.
+  const needleEl = document.createElement("div");
+  needleEl.className = "race-needle";
+  const needle = new Needle(needleEl, "race");
+  const mapEl = document.createElement("div");
+  mapEl.className = "pizza-map race-map";
+  let map = null;
+  let pins = null;
+
+  async function drawMapPins(order, rankOf) {
+    const located = order.filter((id) => Number.isFinite(pizza.get(id).lat) && Number.isFinite(pizza.get(id).lon));
+    mapEl.hidden = !located.length;
+    if (!located.length) return;
+    const L = await loadLeaflet();
+    if (!map) {
+      map = L.map(mapEl, { scrollWheelZoom: false });
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        referrerPolicy: "strict-origin",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+      pins = L.layerGroup().addTo(map);
+      map.fitBounds(located.map((id) => [pizza.get(id).lat, pizza.get(id).lon]), { padding: [24, 24], maxZoom: 14 });
+    }
+    map.invalidateSize();
+    pins.clearLayers();
+    for (const id of [...located].reverse()) {
+      const r = order.indexOf(id);
+      L.circleMarker([pizza.get(id).lat, pizza.get(id).lon], {
+        radius: Math.max(6, 16 - r * 1.5),
+        color: "#fff",
+        weight: 2,
+        fillColor: colourOf(id),
+        fillOpacity: 0.9,
+        className: r === 0 ? "lead-pin" : "",
+      })
+        .on("click", () => pizzaDialog(id))
+        .bindTooltip(`${ordinal(r + 1)} · ${esc(pizza.get(id).restaurant)}`)
+        .addTo(pins);
+    }
+  }
+
+  // One slice per guest, coloured by their favourite pizza so far.
+  function pizzaPie(a) {
+    const everyone = data.allVoters ?? data.voters;
+    const n = Math.max(everyone.length, data.expectedVoters ?? 0, 1);
+    const fav = new Map();
+    for (const [v, b] of a.ballots) {
+      let best = null;
+      for (const [p, sc] of b) if (best === null || sc > b.get(best)) best = p;
+      if (best !== null) fav.set(v, best);
+    }
+    const R = 92;
+    const slices = [];
+    for (let i = 0; i < n; i++) {
+      const v = everyone[i];
+      const p = v ? fav.get(v.id) : undefined;
+      const a0 = (i / n) * 2 * Math.PI - Math.PI / 2;
+      const a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
+      const pt = (ang) => `${100 + R * Math.cos(ang)} ${100 + R * Math.sin(ang)}`;
+      const d = n === 1 ? `M100 8 A92 92 0 1 1 99.99 8 Z` : `M100 100 L${pt(a0)} A${R} ${R} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${pt(a1)} Z`;
+      const label = v ? `${v.name}: ${p !== undefined ? pizza.get(p).restaurant : "no votes yet"}` : "Not voted yet";
+      slices.push(
+        `<path d="${d}" fill="${p !== undefined ? colourOf(p) : "#e8e1d6"}" stroke="#f6d9a6" stroke-width="2" ${v && voter.has(v.id) ? `data-voter="${v.id}"` : ""}><title>${esc(label)}</title></path>`
+      );
+    }
+    const counts = new Map();
+    for (const p of fav.values()) counts.set(p, (counts.get(p) || 0) + 1);
+    const legend = [...counts].sort((x, y) => y[1] - x[1]);
+    return `
+      <div class="pie-wrap">
+        <svg viewBox="0 0 200 200" class="pie" role="img" aria-label="Each guest's favourite so far">
+          <circle cx="100" cy="100" r="99" fill="#d9963f"/>
+          ${slices.join("")}
+          ${[...Array(6)].map((_, i) => `<circle cx="${100 + 55 * Math.cos(i * 1.05)}" cy="${100 + 55 * Math.sin(i * 1.05)}" r="5" fill="rgba(255,255,255,0.25)"/>`).join("")}
+        </svg>
+        <div>
+          <p class="hint">Each slice is a guest, coloured by their favourite so far. Grey slices haven't voted yet.</p>
+          <ul class="pie-legend">${legend
+            .map(([p, c]) => `<li><button class="link" data-pizza="${p}"><span class="sw" style="background:${colourOf(p)}"></span>${pname(p)}</button> <strong>${c}</strong></li>`)
+            .join("")}</ul>
+        </div>
+      </div>`;
+  }
 
   function raceCard(a, order, method, cat, final) {
+    const win = chances(cat, method);
+    const leader = order[0];
+    const lead = win.get(leader) ?? 0;
+    const call = final
+      ? `<strong>Winner: ${pname(leader)}</strong>`
+      : lead >= 0.9
+        ? `<strong>Projected winner: ${pname(leader)}</strong>`
+        : lead >= 0.6
+          ? `Leaning <strong>${pname(leader)}</strong>`
+          : "Too early to call";
+    needle.set(lead, `${call}<br><span class="hint">${final ? "Final count" : `${pct(lead)} chance ${pname(leader)} wins, if everyone tries everything`}</span>`);
     const vals = valuesFor(a, method);
     const nums = order.map((id) => vals.get(id)).filter(Number.isFinite);
     const top = Math.max(...nums, 0) || 1;
     const catPizzas = a.ids.length;
     const tasted = [...a.ballots.values()].reduce((n, b) => n + b.size, 0);
-    const possible = a.ballots.size * catPizzas;
-    const pct = possible ? Math.round((tasted / possible) * 100) : 0;
+    const possible = Math.max(data.expectedVoters ?? 0, a.ballots.size) * catPizzas;
+    const tastedPct = possible ? Math.round((tasted / possible) * 100) : 0;
+    const left = possible - tasted;
     const title = cat === "all" ? "Every pizza" : CATEGORY_LABELS[cat];
     const m = METHODS.find((x) => x.key === method);
     return `
       <section class="race-card">
         <div class="race-stripe">${order.slice(0, 6).map((id) => `<span style="background:${colourOf(id)}"></span>`).join("")}</div>
         <h2 class="race-title"><span class="race-logo">🍕</span> 2026 ${esc(title)}</h2>
+        <div class="race-call"><div data-slot="needle"></div></div>
         <table class="race-table">
-          <thead><tr><th>Pizza</th><th class="by">Brought by</th><th class="num">Scores</th><th class="num">${esc(m.short)}</th></tr></thead>
+          <thead><tr><th>Pizza</th><th class="by">Brought by</th><th class="num">Scores</th><th class="num">${esc(m.short)}</th><th class="num">Win</th></tr></thead>
           <tbody>${order
             .map((id, i) => {
               const v = vals.get(id);
               const width = Number.isFinite(v) ? Math.max(2, (v / top) * 100) : 0;
               return `<tr class="${i === 0 ? "lead" : ""}" style="--c:${colourOf(id)}">
-                <td><button class="link" data-pizza="${id}">${pname(id)}</button>${i === 0 && final ? " ✓" : ""}
-                  <span class="race-bar"><span style="width:${width}%"></span></span></td>
+                <td class="who">${head(id)}<span><button class="link" data-pizza="${id}">${pname(id)}</button>${i === 0 && final ? " ✓" : ""}
+                  <span class="race-bar"><span style="width:${width}%"></span></span></span></td>
                 <td class="by">${byLink(pizza.get(id).bringer)}</td>
                 <td class="num">${a.stats.get(id).n}</td>
                 <td class="num strong">${fmtValue(method, v)}</td>
+                <td class="num">${pct(win.get(id))}</td>
               </tr>`;
             })
             .join("")}</tbody>
@@ -74,9 +188,13 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
           <span class="hint">${tasted} ${tasted === 1 ? "score" : "scores"} from ${a.ballots.size} ${a.ballots.size === 1 ? "person" : "people"}</span>
         </div>
         <div class="race-progress">
-          <span class="hint">${pct >= 95 && pct < 100 ? ">95" : pct}% of slices tasted</span>
-          <span class="track"><span style="width:${pct}%"></span></span>
+          <span class="hint">${tastedPct >= 95 && tastedPct < 100 ? ">95" : tastedPct}% of slices tasted${left > 0 && !final ? ` · about ${left} to go` : ""}</span>
+          <span class="track"><span style="width:${tastedPct}%"></span></span>
         </div>
+        <h3 class="race-sub">The pizza map</h3>
+        ${pizzaPie(a)}
+        <h3 class="race-sub">Toronto</h3>
+        <div data-slot="map"></div>
       </section>`;
   }
 
@@ -85,10 +203,15 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
   function render() {
     for (const d of root.querySelectorAll("details[data-key]")) openState.set(d.dataset.key, d.open);
     draw();
+    root.querySelector('[data-slot="needle"]')?.replaceWith(needleEl);
+    root.querySelector('[data-slot="map"]')?.replaceWith(mapEl);
+    if (mapEl.isConnected) drawMapPins(lastOrder, null).catch(() => (mapEl.hidden = true));
     for (const d of root.querySelectorAll("details[data-key]")) if (openState.has(d.dataset.key)) d.open = openState.get(d.dataset.key);
   }
 
+  let lastOrder = [];
   function draw() {
+    const final = !!data.final;
     if (!cats.length || !data.scores.length) {
       root.innerHTML = `<p class="empty">No scores yet.</p>`;
       return;
@@ -98,6 +221,7 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
     // Elected-only methods (STV) rank just a few; the rest follow by average.
     const order = [...a.rankings[method].filter((id) => voted.includes(id))];
     for (const id of a.rankings.average) if (voted.includes(id) && !order.includes(id)) order.push(id);
+    lastOrder = order;
     const rankOf = (id) => (a.rankings[method].includes(id) ? a.rankings[method].indexOf(id) + 1 : 0);
     const v2 = (id) => medal("v2", order.indexOf(id) + 1);
     const badges = (id) => `${v2(id)} ${v1(id)}`;
@@ -119,17 +243,18 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
           </button>`
         : "";
     const podium = `
-      <section class="podium">
+      <section class="winners">
         ${order
           .slice(0, 3)
           .map(
-            (id, i) => `<button class="step step-${i + 1}" data-pizza="${id}">
-              <span class="medal">${["🥇", "🥈", "🥉"][i]}</span>
-              <strong>${pname(id)}</strong>
+            (id, i) => `<button class="cand cand-${i + 1}" data-pizza="${id}" style="--c:${colourOf(id)}">
+              ${i === 0 ? `<span class="cand-banner">✓ Winner</span>` : `<span class="cand-place">${ordinal(i + 1)}</span>`}
+              ${head(id, "big")}
+              <strong class="cand-name">${pname(id)}</strong>
               <span class="hint">${esc(pizza.get(id).kind)}</span>
-              <span>${badges(id)}</span>
-              <span class="big">${fmt(a.stats.get(id).mean, 2)}</span>
-              <span class="hint">average</span>
+              ${pizza.get(id).bringer ? `<span class="cand-party">Brought by ${esc(pizza.get(id).bringer)}</span>` : ""}
+              <span class="cand-score">${fmtValue(method, valuesFor(a, method).get(id))}</span>
+              <span class="hint">${esc(m.label.toLowerCase())}</span>
             </button>`
           )
           .join("")}
@@ -158,7 +283,7 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
         data.you != null
           ? voter.has(data.you)
             ? `<details class="more" data-key="you" open><summary>Your scores</summary><div class="card you">${personRanking(data.you, true)}</div></details>
-               <details class="more" data-key="youfacts"><summary>Fun facts about you</summary><div class="card you">${personFacts(data.you, true) || `<p class="hint">Score a few more pizzas first.</p>`}</div></details>`
+               <details class="more" data-key="youfacts"><summary>Fun facts about you</summary>${personFacts(data.you, true) || `<p class="hint">Score a few more pizzas first.</p>`}</details>`
             : `<details class="more" data-key="you" open><summary>Your scores</summary><p class="hint">You haven't scored anything yet.</p></details>`
           : ""
       }
@@ -183,19 +308,21 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
 
       <details class="more" data-key="facts">
       <summary>Fun facts about everyone</summary>
-      <div class="facts">${funFacts(a, voter, pname)
-        .map((f) => `<div class="card fact">${f}</div>`)
-        .join("")}
-        ${final ? "" : worstCard}
-        <div class="card fact fullness">
-          <strong>The fullness effect:</strong>
-          ${
+      <div class="facts">${awards([
+        ...funFacts(a, data, voter, pname),
+        ...(!final && a.worst !== null
+          ? [{ icon: "🗑️", title: "Worst pizza", colour: "#6b6b6b", body: `<button class="link" data-pizza="${a.worst}">${pname(a.worst)}</button>, the lowest score for ${fmt(a.values.worsts.get(a.worst), a.values.worsts.get(a.worst) % 1 ? 1 : 0)} ${a.values.worsts.get(a.worst) === 1 ? "person" : "people"}. Averaged ${fmt(a.stats.get(a.worst).mean, 2)}.` }]
+          : []),
+        {
+          icon: "😮‍💨",
+          title: "The fullness effect",
+          colour: "#00838f",
+          body:
             Math.abs(slope) < 0.005
-              ? "slice order made no measurable difference."
-              : `each extra slice ${slope < 0 ? "cost" : "added"} <strong>${fmt(Math.abs(slope), 2)}</strong> points on average, after allowing for harsh and generous scorers.`
-          }
-        </div>
-      </div>
+              ? "Slice order made no measurable difference."
+              : `Each extra slice ${slope < 0 ? "cost" : "added"} <strong>${fmt(Math.abs(slope), 2)}</strong> points on average, after allowing for harsh and generous scorers.`,
+        },
+      ])}</div>
       </details>
 
       <details class="more" data-key="methods">
@@ -265,24 +392,103 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
     const info = person(data, v);
     const league = agreementLeague(data);
     const place = league.findIndex((x) => x.v === v);
-    const they = own ? "you" : "they";
-    return `
-      ${
-        place >= 0
-          ? `<p>${ordinal(place + 1)} most in tune with the group, out of ${league.length}
-             <span class="hint">(agreement ${fmt(info.agreement, 2)}, where 1 means ${own ? "your" : "their"} scores rose and fell exactly with everyone else's)</span></p>`
-          : ""
-      }
-      ${info.twin ? `<p>Taste twin: <button class="link" data-voter="${info.twin.v}">${esc(voter.get(info.twin.v).name)}</button> <span class="hint">(${fmt(info.twin.r, 2)} over ${info.twin.shared} shared pizzas)</span></p>` : ""}
-      ${
-        info.hotTakes.length
-          ? `<h3>Hot takes</h3><ul>${info.hotTakes
-              .map(
-                (h) => `<li><button class="link" data-pizza="${h.p}">${pname(h.p)}</button>: ${they} gave ${fmt(h.s, 2)}, everyone else averaged ${fmt(h.others, 2)}</li>`
-              )
-              .join("")}</ul>`
-          : ""
-      }`;
+    const you = own ? "you" : esc(voter.get(v).name);
+    const your = own ? "your" : `${esc(voter.get(v).name)}'s`;
+    const Your = own ? "Your" : `${esc(voter.get(v).name)}'s`;
+    const who = (x) => `<button class="link" data-voter="${x}">${esc(voter.get(x).name)}</button>`;
+    const link = (id) => `<button class="link" data-pizza="${id}">${pname(id)}</button>`;
+    const out = [];
+    const mine = data.scores.filter((o) => o.v === v);
+    const all = analyse(data, null);
+
+    if (info.twin) out.push({ icon: "👯", title: "Taste twin", colour: "#c2187a", body: `${who(info.twin.v)}. ${Your} scores moved together across ${info.twin.shared} pizzas you both tried.` });
+    if (info.nemesis) out.push({ icon: "⚔️", title: "Taste nemesis", colour: "#6d4c41", body: `${who(info.nemesis.v)}. When ${you} liked something, they tended not to, across ${info.nemesis.shared} shared pizzas.` });
+
+    // The score furthest from the group, measured against how much the group
+    // itself disagreed about that pizza.
+    let take = null;
+    for (const o of mine) {
+      const xs = data.scores.filter((x) => x.p === o.p && x.v !== v).map((x) => x.s);
+      if (xs.length < 3) continue;
+      const m = avg(xs);
+      const sd = Math.sqrt(xs.reduce((t, x) => t + (x - m) ** 2, 0) / (xs.length - 1)) || 0.5;
+      const z = (o.s - m) / Math.max(sd, 0.5);
+      if (!take || Math.abs(z) > Math.abs(take.z)) take = { ...o, m, z };
+    }
+    if (take && Math.abs(take.z) >= 1) {
+      out.push({ icon: "🌶️", title: "Hottest take", colour: "#d22f27", body: `${own ? "You" : esc(voter.get(v).name)} gave ${link(take.p)} a <strong>${fmt(take.s, take.s % 1 ? 1 : 0)}</strong>. Everyone else averaged ${fmt(take.m, 1)}.` });
+    }
+
+    if (place >= 0) {
+      const sheep = place === 0;
+      out.push({
+        icon: "🐑",
+        title: sheep ? "Biggest sheep" : place === league.length - 1 ? "Lone wolf" : "Sheep rank",
+        colour: "#5c6bc0",
+        body: sheep
+          ? `${own ? "Your" : "Their"} scores followed the crowd more closely than anyone's.`
+          : place === league.length - 1
+            ? `${own ? "Your" : "Their"} scores matched the crowd less than anyone's.`
+            : `${ordinal(place + 1)} biggest sheep of ${league.length}. 1st means ${your} scores rose and fell exactly with everyone else's.`,
+      });
+    }
+
+    if (mine.length >= 3) {
+      const diffs = mine.map((o) => o.s - all.stats.get(o.p).mean);
+      const g = avg(diffs);
+      if (Math.abs(g) >= 0.3)
+        out.push({
+          icon: g > 0 ? "🎁" : "🧐",
+          title: g > 0 ? "Generous" : "Harsh",
+          colour: g > 0 ? "#1a9e5a" : "#e07b00",
+          body: `On the same pizzas, ${you} scored <strong>${fmt(Math.abs(g), 1)}</strong> ${g > 0 ? "higher" : "lower"} than the room on average.`,
+        });
+    }
+
+    if (mine.length >= 4) {
+      const xs = mine.map((o) => o.pos);
+      const ys = mine.map((o) => o.s - all.stats.get(o.p).mean);
+      const mx = avg(xs);
+      const my = avg(ys);
+      const sxx = xs.reduce((t, x) => t + (x - mx) ** 2, 0);
+      const slope = sxx ? xs.reduce((t, x, i) => t + (x - mx) * (ys[i] - my), 0) / sxx : 0;
+      if (Math.abs(slope) >= 0.1)
+        out.push({
+          icon: slope < 0 ? "😴" : "🔥",
+          title: slope < 0 ? "Got full" : "Warmed up",
+          colour: "#00838f",
+          body: `Compared with the room, ${your} scores ${slope < 0 ? "dropped" : "rose"} about <strong>${fmt(Math.abs(slope), 2)}</strong> per slice as the night went on.`,
+        });
+    }
+
+    const top = [...mine].sort((x, y) => y.s - x.s)[0];
+    if (top) {
+      const cat = pizza.get(top.p).category;
+      const overall = analyse(data, cat).rankings.average.filter((id) => analyse(data, cat).stats.get(id).n > 0);
+      const r = overall.indexOf(top.p) + 1;
+      if (r > 0)
+        out.push({
+          icon: r === 1 ? "🎯" : "🧭",
+          title: r === 1 ? "Called it" : "Your pick vs the room",
+          colour: "#1f5fd1",
+          body: `${Your} favourite, ${link(top.p)}, is ${r === 1 ? "<strong>1st</strong> with everyone" : `<strong>${ordinal(r)}</strong> of ${overall.length} with everyone`}.`,
+        });
+    }
+
+    // Would the winner change without this person's ballot?
+    for (const c of Object.keys(CATEGORY_LABELS)) {
+      const ids = data.pizzas.filter((p) => p.category === c).map((p) => p.id);
+      if (!mine.some((o) => ids.includes(o.p))) continue;
+      const winner = (d) => {
+        const { ballots } = ballotsFor(d, c);
+        return rank(method, ids, ballots, stats(ids, ballots), d)[0];
+      };
+      const withMe = winner(data);
+      const without = winner({ ...data, scores: data.scores.filter((o) => o.v !== v) });
+      if (withMe !== without)
+        out.push({ icon: "👑", title: "Kingmaker", colour: "#8a3ffc", body: `Without ${your} votes, ${link(without)} would be winning ${CATEGORY_LABELS[c]} instead of ${link(withMe)}.` });
+    }
+    return out.length ? `<div class="facts">${awards(out)}</div>` : "";
   }
 
   function personRanking(v, own) {
@@ -311,7 +517,8 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
 
   // A tap anywhere in a table cell counts as tapping the link inside it.
   const onClick = (e) => {
-    const b = e.target.closest("button") || e.target.closest("td, th")?.querySelector("button[data-pizza], button[data-voter]");
+    const b =
+      e.target.closest("button, path[data-voter]") || e.target.closest("td, th")?.querySelector("button[data-pizza], button[data-voter], button[data-person]");
     if (!b) return;
     if (b.dataset.pickMethod) {
       method = b.dataset.pickMethod;
@@ -322,6 +529,19 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
       render();
     } else if (b.dataset.pizza) pizzaDialog(Number(b.dataset.pizza));
     else if (b.dataset.voter) voterDialog(Number(b.dataset.voter));
+    else if (b.dataset.person) {
+      const v = data.voters.find((x) => x.name === b.dataset.person);
+      if (v) voterDialog(v.id);
+      else {
+        const brought = data.pizzas.filter((p) => p.bringer === b.dataset.person);
+        dialog.innerHTML = `
+          <button class="close secondary small" data-close>Close</button>
+          <h2 style="margin-top:0">${esc(b.dataset.person)}</h2>
+          <p>Brought ${brought.map((p) => `<button class="link" data-pizza="${p.id}">${esc(p.restaurant)}</button>`).join(" and ")}.</p>
+          <p class="hint">Hasn't scored anything yet.</p>`;
+        if (!dialog.open) dialog.showModal();
+      }
+    }
   };
   root.addEventListener("click", onClick);
   root.addEventListener("toggle", (e) => {
@@ -333,10 +553,6 @@ export function mountExplorer(root, initial, { official = "", final = false } = 
     update(next) {
       data = next;
       load();
-      render();
-    },
-    setFinal(on) {
-      final = on;
       render();
     },
   };
@@ -362,8 +578,57 @@ function fmtValue(method, v) {
   return fmt(v, 2);
 }
 
-// Short, plain-language facts about the current tab. Each entry is HTML.
-function funFacts(a, voter, pname) {
+const gauss = () => Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+
+// Win chances, assuming every expected guest ends up tasting every pizza.
+// Each simulated finish fills the missing slices from the pizza's average so
+// far (shifted by an unknown "true" amount that shrinks as scores come in),
+// the guest's habit of scoring high or low, and some noise, then reruns the
+// count. sims = 0 means the count is final.
+function simulateWins(data, category, method, sims) {
+  const { ids, ballots } = ballotsFor(data, category);
+  const current = rank(method, ids, ballots, stats(ids, ballots), data)[0];
+  if (!sims || !data.scores.length) return new Map(ids.map((id) => [id, id === current && data.scores.length ? 1 : sims ? 1 / ids.length : 0]));
+  const st = stats(ids, ballots);
+  const scored = [...ballots.values()].flatMap((b) => [...b.values()]);
+  const overall = scored.length ? avg(scored) : 6;
+  const bias = new Map();
+  for (const [v, b] of ballots) bias.set(v, avg([...b].map(([p, sc]) => sc - (st.get(p).n ? st.get(p).mean : overall))));
+  const guests = [...new Set([...(data.allVoters ?? data.voters).map((v) => v.id), ...ballots.keys()])];
+  for (let i = guests.length; i < (data.expectedVoters ?? 0); i++) guests.push(`extra${i}`);
+
+  const wins = new Map(ids.map((id) => [id, 0]));
+  for (let k = 0; k < sims; k++) {
+    const shift = new Map(ids.map((id) => [id, (gauss() * 1.8) / Math.sqrt(st.get(id).n + 1)]));
+    const scores = [...data.scores];
+    for (const g of guests) {
+      const b = ballots.get(g);
+      for (const id of ids) {
+        if (b?.has(id)) continue;
+        const base = (st.get(id).n ? st.get(id).mean : overall) + shift.get(id) + 0.7 * (bias.get(g) || 0);
+        scores.push({ v: g, p: id, pos: 99, s: Math.min(10, Math.max(0, base + gauss() * 1.4)) });
+      }
+    }
+    const sim = { ...data, scores };
+    const sb = ballotsFor(sim, category).ballots;
+    const w = rank(method, ids, sb, stats(ids, sb), sim)[0];
+    wins.set(w, wins.get(w) + 1);
+  }
+  for (const id of ids) wins.set(id, wins.get(id) / sims);
+  return wins;
+}
+
+// Award cards: a coloured title strip, then the description.
+function awards(list) {
+  return list
+    .map((f) => `<div class="award" style="--c:${f.colour}"><div class="award-title"><span>${f.icon}</span>${f.title}</div><div class="award-body">${f.body}</div></div>`)
+    .join("");
+}
+
+const pct = (x) => (Number.isFinite(x) ? (x > 0 && x < 0.01 ? "<1%" : `${Math.round(x * 100)}%`) : "–");
+
+// Plain-language facts about the current tab, as award cards.
+function funFacts(a, data, voter, pname) {
   const facts = [];
   const link = (id) => `<button class="link" data-pizza="${id}">${pname(id)}</button>`;
   const who = (v) => `<button class="link" data-voter="${v}">${esc(voter.get(v).name)}</button>`;
@@ -373,15 +638,21 @@ function funFacts(a, voter, pname) {
     const bySpread = [...rated].sort((x, y) => a.stats.get(y).sd - a.stats.get(x).sd);
     const split = bySpread[0];
     const agreed = bySpread[bySpread.length - 1];
-    facts.push(`<strong>Most divisive:</strong> ${link(split)}. Scores ranged from ${fmt(Math.min(...a.stats.get(split).scores), 1)} to ${fmt(Math.max(...a.stats.get(split).scores), 1)}.`);
-    if (agreed !== split) facts.push(`<strong>Most agreed on:</strong> ${link(agreed)}. Everyone landed within about ${fmt(a.stats.get(agreed).sd, 1)} points of ${fmt(a.stats.get(agreed).mean, 1)}.`);
+    facts.push({ icon: "⚡", title: "Most divisive", colour: "#e07b00", body: `${link(split)}. Scores ranged from ${fmt(Math.min(...a.stats.get(split).scores), 1)} to ${fmt(Math.max(...a.stats.get(split).scores), 1)}.` });
+    if (agreed !== split) facts.push({ icon: "🤝", title: "Most agreed on", colour: "#1a9e5a", body: `${link(agreed)}. Everyone landed within about ${fmt(a.stats.get(agreed).sd, 1)} points of ${fmt(a.stats.get(agreed).mean, 1)}.` });
   }
 
   const people = [...a.ballots].filter(([, b]) => b.size >= 3).map(([v, b]) => ({ v, m: avg([...b.values()]) }));
   if (people.length >= 2) {
     people.sort((x, y) => x.m - y.m);
-    facts.push(`<strong>Toughest critic:</strong> ${who(people[0].v)}, who averaged ${fmt(people[0].m, 1)}.`);
-    facts.push(`<strong>Easiest to please:</strong> ${who(people[people.length - 1].v)}, who averaged ${fmt(people[people.length - 1].m, 1)}.`);
+    facts.push({ icon: "🧐", title: "Toughest critic", colour: "#d22f27", body: `${who(people[0].v)}, who averaged ${fmt(people[0].m, 1)}.` });
+    facts.push({ icon: "🥰", title: "Easiest to please", colour: "#c2187a", body: `${who(people[people.length - 1].v)}, who averaged ${fmt(people[people.length - 1].m, 1)}.` });
+  }
+
+  const league = agreementLeague(data);
+  if (league.length >= 3) {
+    facts.push({ icon: "🐑", title: "Biggest sheep", colour: "#5c6bc0", body: `${who(league[0].v)}. Their scores followed the crowd more closely than anyone's.` });
+    facts.push({ icon: "🐺", title: "Lone wolf", colour: "#37474f", body: `${who(league[league.length - 1].v)}. Their scores matched the crowd less than anyone's.` });
   }
 
   let take = null;
@@ -394,14 +665,14 @@ function funFacts(a, voter, pname) {
     }
   }
   if (take && Math.abs(take.s - take.others) >= 1.5) {
-    facts.push(`<strong>Biggest hot take:</strong> ${who(take.v)} gave ${link(take.id)} a ${fmt(take.s, take.s % 1 ? 1 : 0)}. Everyone else averaged ${fmt(take.others, 1)}.`);
+    facts.push({ icon: "🌶️", title: "Biggest hot take", colour: "#ef5350", body: `${who(take.v)} gave ${link(take.id)} a ${fmt(take.s, take.s % 1 ? 1 : 0)}. Everyone else averaged ${fmt(take.others, 1)}.` });
   }
 
   const all = [...a.ballots.values()].flatMap((b) => [...b.values()]);
   if (all.length) {
     const tens = all.filter((s) => s === 10).length;
     const zeros = all.filter((s) => s === 0).length;
-    facts.push(`<strong>In total:</strong> ${all.length} scores from ${a.ballots.size} ${a.ballots.size === 1 ? "person" : "people"}, averaging ${fmt(avg(all), 2)}. ${tens} perfect ${tens === 1 ? "10" : "10s"}${zeros ? ` and ${zeros} ${zeros === 1 ? "zero" : "zeros"}` : ""}.`);
+    facts.push({ icon: "📊", title: "In total", colour: "#1f5fd1", body: `${all.length} scores from ${a.ballots.size} ${a.ballots.size === 1 ? "person" : "people"}, averaging ${fmt(avg(all), 2)}. ${tens} perfect ${tens === 1 ? "10" : "10s"}${zeros ? ` and ${zeros} ${zeros === 1 ? "zero" : "zeros"}` : ""}.` });
   }
   return facts;
 }

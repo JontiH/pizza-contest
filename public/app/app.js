@@ -91,7 +91,7 @@ function renderMain() {
     ["lineup", "Lineup", true],
     ["info", "Info", true],
     ["vote", "Vote", me.phase !== "signup" || !!sandbox],
-    ["results", "Results", ["closed", "revealed"].includes(me.phase) || !!sandbox],
+    ["results", "Results", ["closed", "revealed"].includes(me.phase) || (me.phase === "tasting" && me.liveResults) || !!sandbox],
     ...(me.admin ? [["admin", "Admin", true]] : []),
   ];
   if (!tabs.some(([k, , on]) => k === tab && on)) tab = "lineup";
@@ -479,6 +479,9 @@ async function renderAdmin() {
     <p class="row">
       <label><input type="checkbox" data-act-change="allow-skip" ${a.settings.allow_skip === "1" ? "checked" : ""}> Let voters skip a pizza for now</label>
     </p>
+    <p class="row">
+      <label><input type="checkbox" data-act-change="live-results" ${a.settings.live_results === "1" ? "checked" : ""}> Live results: guests can see results while tasting is open</label>
+    </p>
     <p class="row"><a href="/results/">Preview results (admin only)</a> · <button class="small secondary" data-act="start-sandbox">Try vote mode (test)</button> · <a href="/results/?test">Try results (test)</a></p>
 
     <details class="card info-edit" ${a.settings.info_address ? "" : "open"}>
@@ -757,6 +760,10 @@ view.addEventListener("change", async (e) => {
     } else if (el.dataset.bringer) {
       await api("POST", `/api/admin/pizzas/${el.dataset.bringer}`, { bringer_id: el.value || null });
       toast("Saved");
+    } else if (el.dataset.actChange === "live-results") {
+      await api("POST", "/api/admin/settings", { live_results: el.checked });
+      me.liveResults = el.checked;
+      toast(el.checked ? "Guests can see live results" : "Live results hidden from guests");
     } else if (el.dataset.actChange === "allow-skip") {
       await api("POST", "/api/admin/settings", { allow_skip: el.checked });
       toast(el.checked ? "Voters can skip a pizza" : "Skipping turned off");

@@ -383,6 +383,7 @@ export function person(data, voterId) {
   }
   const me = byVoter.get(voterId) || new Map();
   let twin = null;
+  let nemesis = null;
   for (const [v, theirs] of byVoter) {
     if (v === voterId) continue;
     const shared = [...me.keys()].filter((p) => theirs.has(p));
@@ -390,13 +391,16 @@ export function person(data, voterId) {
       shared.map((p) => me.get(p)),
       shared.map((p) => theirs.get(p))
     );
-    if (Number.isFinite(r) && (!twin || r > twin.r)) twin = { v, r, shared: shared.length };
+    if (!Number.isFinite(r) || shared.length < 3) continue;
+    if (!twin || r > twin.r) twin = { v, r, shared: shared.length };
+    if (!nemesis || r < nemesis.r) nemesis = { v, r, shared: shared.length };
   }
   return {
     ranking: [...mine].sort((x, y) => y.s - x.s),
     agreement,
     hotTakes,
     twin,
+    nemesis: nemesis && nemesis.v !== twin?.v && nemesis.r < 0 ? nemesis : null,
   };
 }
 

@@ -32,7 +32,7 @@ async function testData(seed) {
   } catch {}
   const you = me?.name ? { name: me.name, scores: lineup ? mine : [] } : null;
   return {
-    full: fakeResults(seed, lineup, board ? Math.max(12, board.guests.length) : 22, you),
+    full: fakeResults(seed, lineup, board ? Math.max(12, board.guests.length) : 22, you, board ? board.guests.map((g) => g.name) : []),
     realLineup: !!lineup,
     ownVotes: !!you?.scores.length,
     test: true,
@@ -46,7 +46,8 @@ function mountTest({ full, realLineup, ownVotes }) {
   const bar = document.createElement("div");
   bar.className = "card preview-note stack";
   root.before(bar);
-  const slice = () => ({ ...firstScores(full, shown), you });
+  let final = false;
+  const slice = () => ({ ...firstScores(full, shown), you, allVoters: full.voters, expectedVoters: full.voters.length, final });
   const explorer = mountExplorer(root, slice(), { official: "" });
 
   const draw = () => {
@@ -81,7 +82,10 @@ function mountTest({ full, realLineup, ownVotes }) {
     </div>
     <div class="hint"><a href="?test=${Math.floor(Math.random() * 1e6) + 2}">New fake votes</a> · <a href="/app/count.html?test">Ballot-by-ballot count</a> · <a href="/app/#admin">Back to Admin</a></div>`;
   bar.addEventListener("change", (e) => {
-    if (e.target.dataset.final !== undefined) explorer.setFinal(e.target.checked);
+    if (e.target.dataset.final !== undefined) {
+      final = e.target.checked;
+      draw();
+    }
     if (e.target.dataset.you !== undefined) {
       you = Number(e.target.value);
       draw();
@@ -108,7 +112,7 @@ function mountTest({ full, realLineup, ownVotes }) {
 load()
   .then((data) => {
     if (data.test) return mountTest(data);
-    mountExplorer(root, data, { official: data.officialMethod, final: !data.preview });
+    mountExplorer(root, data, { official: data.officialMethod });
     if (data.preview) {
       const note = document.createElement("p");
       note.className = "card preview-note";

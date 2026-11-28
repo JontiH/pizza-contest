@@ -71,8 +71,9 @@ async function route(ctx, method, path) {
   }
 
   if (path === "results" && method === "GET") {
-    // Admins can preview any time; guests see results once voting closes.
-    const open = ["closed", "revealed"].includes(ctx.settings.phase);
+    // Admins can preview any time; guests see results once voting closes,
+    // or during tasting when the admin turns on live results.
+    const open = ["closed", "revealed"].includes(ctx.settings.phase) || (ctx.settings.phase === "tasting" && ctx.settings.live_results === "1");
     if (!open && !ctx.admin) throw new HttpError(403, "results come out after voting closes");
     return json({ ...(await buildResults(ctx.env, { includeBringer: true, viewerId: ctx.user?.id })), preview: !open });
   }
@@ -106,6 +107,7 @@ function me(ctx) {
     admin: ctx.admin,
     phase: settings.phase,
     officialMethod: settings.official_method,
+    liveResults: settings.live_results === "1",
   };
 }
 
@@ -435,6 +437,13 @@ async function admin(ctx, method, path) {
           env.DB.prepare(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`).bind(k, v)
         )
       );
+    }
+    if (body.live_results !== undefined) {
+      await env.DB.prepare(
+        `INSERT INTO settings (key, value) VALUES ('live_results', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`
+      )
+        .bind(body.live_results ? "1" : "0")
+        .run();
     }
     if (body.allow_skip !== undefined) {
       await env.DB.prepare(
