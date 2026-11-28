@@ -8,5 +8,5 @@ v="${1:?usage: stamp-assets.sh <version>}"
 cd "$(dirname "$0")/../public"
 find . -type f \( -name '*.html' -o -name '*.js' -o -name '*.css' \) -not -path './assets/vendor/*' -print0 |
   xargs -0 sed -i -E \
-    -e "s#([\"(])(/(assets|app)/[^\"?)]+\.(js|css))([\")])#\1\2?v=${v}\5#g" \
+    -e "s#([\"(])(/(assets|app|results)/[^\"?)]+\.(js|css))([\")])#\1\2?v=${v}\5#g" \
     -e "s#(from \")(\./[^\"?]+\.js)\"#\1\2?v=${v}\"#g"
