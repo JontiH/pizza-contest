@@ -18,7 +18,7 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
     cats = Object.keys(CATEGORY_LABELS).filter((c) => data.pizzas.some((p) => p.category === c));
     pizza = new Map(data.pizzas.map((p) => [p.id, p]));
     voter = new Map(data.voters.map((v) => [v.id, v]));
-    if (cat !== "all" && !cats.includes(cat)) cat = cats[0];
+    if (!cats.includes(cat)) cat = cats[0];
   };
   load();
   const pname = (id) => esc(pizza.get(id)?.restaurant ?? "?");
@@ -35,7 +35,7 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
       root.innerHTML = `<p class="empty">No scores yet.</p>`;
       return;
     }
-    const a = analyse(data, cat === "all" ? null : cat);
+    const a = analyse(data, cat);
     const voted = a.ids.filter((id) => a.stats.get(id).n > 0);
     // Elected-only methods (STV) rank just a few; the rest follow by average.
     const order = [...a.rankings[method].filter((id) => voted.includes(id))];
@@ -47,12 +47,11 @@ export function mountExplorer(root, initial, { official = "" } = {}) {
     const voters = [...a.ballots.keys()].sort((x, y) => voter.get(x).name.localeCompare(voter.get(y).name));
     const cols = order;
     const slope = a.slope;
-    const tabs = cats.length > 1 ? [...cats, "all"] : [];
-    const tabLabel = (c) => (c === "all" ? "Combined" : CATEGORY_LABELS[c]);
+    const tabs = cats.length > 1 ? cats : [];
     const m = METHODS.find((x) => x.key === method);
 
     root.innerHTML = `
-      ${tabs.length ? `<nav class="tabs">${tabs.map((c) => `<button data-cat="${c}" class="${c === cat ? "active" : ""}">${tabLabel(c)}</button>`).join("")}</nav>` : ""}
+      ${tabs.length ? `<nav class="tabs">${tabs.map((c) => `<button data-cat="${c}" class="${c === cat ? "active" : ""}">${CATEGORY_LABELS[c]}</button>`).join("")}</nav>` : ""}
 
       <div class="card method-pick">
         <label class="field">Rank pizzas by
